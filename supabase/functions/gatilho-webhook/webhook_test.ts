@@ -80,6 +80,47 @@ async function postar(
   return await manipular(new Request(URL_FUNCAO, { method: "POST", headers, body: corpo }));
 }
 
+/** Roda `fn` guardando o que foi para console.error (e sem sujar a saída do teste). */
+async function capturandoErros<T>(fn: () => Promise<T>): Promise<{ r: T; erros: unknown[][] }> {
+  const erros: unknown[][] = [];
+  const original = console.error;
+  console.error = (...a) => void erros.push(a);
+  try {
+    return { r: await fn(), erros };
+  } finally {
+    console.error = original;
+  }
+}
+
+/** POST sem Content-Length: o corpo chega em blocos, como no chunked. `pulls` conta quantos blocos foram pedidos. */
+function postarEmBlocos(
+  manipular: (r: Request) => Promise<Response>,
+  blocos: number,
+  tamanhoDoBloco: number,
+  assinatura: string,
+) {
+  const estado = { pulls: 0, cancelado: false };
+  const corpo = new ReadableStream<Uint8Array>({
+    pull(controle) {
+      if (estado.pulls >= blocos) return controle.close();
+      estado.pulls++;
+      controle.enqueue(new Uint8Array(tamanhoDoBloco).fill(0x20)); // espaços
+    },
+    cancel() {
+      estado.cancelado = true;
+    },
+  });
+  const req = new Request(URL_FUNCAO, {
+    method: "POST",
+    headers: { "X-Hub-Signature-256": assinatura },
+    body: corpo,
+    // @ts-ignore: `duplex` é obrigatório para corpo em stream, mas falta nos tipos do Deno
+    duplex: "half",
+  });
+  assertEquals(req.headers.get("content-length"), null, "sem Content-Length, como no chunked");
+  return { resposta: manipular(req), estado };
+}
+
 type Cenario = Awaited<ReturnType<typeof montar>>;
 
 // Subir o Postgres (initdb + a migration inteira) leva uns 15 s: sobe UMA vez e,
@@ -150,8 +191,11 @@ teste("b. assinatura ausente: 401", async (c) => {
 teste("sem INSTAGRAM_APP_SECRET configurado a função recusa tudo (nunca aceita sem conferir)", async (c) => {
   delete c.env.INSTAGRAM_APP_SECRET;
   const corpo = corpoDaMeta({});
-  const r = await postar(c.manipular, corpo, await assinar(corpo)); // até com a assinatura certa
+  const { erros, r } = await capturandoErros(async () => await postar(c.manipular, corpo, await assinar(corpo))); // até com a assinatura certa
   assertEquals(r.status, 503);
+  assertEquals(await r.text(), "indisponível", "o corpo não diz qual variável falta");
+  assertEquals(erros.length, 1);
+  assert(String(erros[0][0]).includes("INSTAGRAM_APP_SECRET"), "o detalhe vai para o log");
   assertEquals(c.consultas.n, 0);
 });
 
@@ -290,9 +334,13 @@ teste("g. GET com verify_token certo devolve o challenge; errado, 403", async (c
   await modo.body?.cancel();
 
   delete c.env.INSTAGRAM_WEBHOOK_VERIFY_TOKEN; // sem a variável não vale token vazio
-  const semVariavel = await c.manipular(new Request(url({ ...certo, "hub.verify_token": "" })));
+  const { erros, r: semVariavel } = await capturandoErros(() =>
+    c.manipular(new Request(url({ ...certo, "hub.verify_token": "" })))
+  );
   assertEquals(semVariavel.status, 503);
-  await semVariavel.body?.cancel();
+  assertEquals(await semVariavel.text(), "indisponível", "o corpo não diz qual variável falta");
+  assertEquals(erros.length, 1);
+  assert(String(erros[0][0]).includes("INSTAGRAM_WEBHOOK_VERIFY_TOKEN"), "o detalhe vai para o log");
   assertEquals(c.consultas.n, 0);
 });
 
@@ -420,6 +468,98 @@ teste("falha do banco num comentário: registra e segue, a resposta continua 200
   }
   assertEquals(erros.length, 1);
   assert(String(erros[0][0]).includes("E-1") && !JSON.stringify(erros).includes("quero"), "loga o id, não o texto");
+});
+
+teste("banco() que lança (faltam SUPABASE_URL/SERVICE_ROLE_KEY): 200 para a Meta, erro no log, sem rejeição solta", async (c) => {
+  const soltas: Event[] = [];
+  const ouvinte = (e: Event) => {
+    e.preventDefault();
+    soltas.push(e);
+  };
+  globalThis.addEventListener("unhandledrejection", ouvinte);
+  try {
+    const manipular = criarManipulador({
+      env: (n) => c.env[n],
+      banco: () => {
+        throw new Error("x");
+      },
+    });
+    const { erros, r } = await capturandoErros(() => postar(manipular, corpoDaMeta({ commentId: "B-1" })));
+    assertEquals(r.status, 200);
+    assertEquals(await r.text(), "EVENT_RECEIVED");
+    assertEquals(erros.length, 1);
+    assertEquals(String(erros[0][0]), "[gatilho-webhook] falha ao processar:");
+    assertEquals(erros[0][1], "x");
+    await new Promise((resolve) => setTimeout(resolve, 0)); // dá a vez a qualquer rejeição que tenha escapado
+    assertEquals(soltas.length, 0, "nenhuma rejeição sem tratamento");
+  } finally {
+    globalThis.removeEventListener("unhandledrejection", ouvinte);
+  }
+  assertEquals(await contarComentarios(c.db), 0);
+});
+
+// ---------------------------------------------------------------- tamanho do corpo (limite de 1.000.000 bytes)
+
+teste("corpo: Content-Length honesto acima do limite dá 413 sem ler o corpo", async (c) => {
+  const corpo = " ".repeat(1_000_001);
+  const r = await c.manipular(
+    new Request(URL_FUNCAO, {
+      method: "POST",
+      headers: { "Content-Length": String(corpo.length), "X-Hub-Signature-256": await assinar(corpo) },
+      body: corpo,
+    }),
+  );
+  assertEquals(r.status, 413);
+  await r.body?.cancel();
+});
+
+teste("corpo: Content-Length mentindo (diz 10, manda 1.000.001) dá 413 pela contagem real", async (c) => {
+  const corpo = " ".repeat(1_000_001);
+  const r = await c.manipular(
+    new Request(URL_FUNCAO, {
+      method: "POST",
+      headers: { "Content-Length": "10", "X-Hub-Signature-256": await assinar(corpo) },
+      body: corpo,
+    }),
+  );
+  assertEquals(r.status, 413);
+  await r.body?.cancel();
+});
+
+teste("corpo: exatamente 1.000.000 bytes ainda segue (passa do limite, cai na assinatura e no JSON)", async (c) => {
+  const limite = " ".repeat(1_000_000);
+  assertEquals((await postar(c.manipular, limite)).status, 400, "assinatura certa, mas não é JSON: 400, não 413");
+  assertEquals((await postar(c.manipular, limite, "sha256=" + "0".repeat(64))).status, 401);
+
+  // e um JSON de verdade preenchido até o limite exato é processado
+  await criarAutomacao(c.db, { userId: c.userId, contaId: c.contaId, mediaId: MEDIA_A, palavras: ["quero"] });
+  const json = corpoDaMeta({ commentId: "T-1" });
+  const cheio = json + " ".repeat(1_000_000 - new TextEncoder().encode(json).length);
+  assertEquals(new TextEncoder().encode(cheio).length, 1_000_000);
+  assertEquals((await postar(c.manipular, cheio)).status, 200);
+  assertEquals(await contarComentarios(c.db), 1);
+});
+
+teste("corpo: sem Content-Length (chunked) para de ler ao passar do limite e dá 413", async (c) => {
+  // 100 blocos de 100 kB = 10 MB; o limite é cruzado no 11º bloco
+  const { resposta, estado } = postarEmBlocos(c.manipular, 100, 100_000, "sha256=" + "0".repeat(64));
+  const r = await resposta;
+  assertEquals(r.status, 413);
+  await r.body?.cancel();
+  assert(estado.pulls <= 13, `o stream foi lido até o fim? pulls = ${estado.pulls}`);
+  assert(estado.pulls >= 11, `pulls = ${estado.pulls}`);
+  assert(estado.cancelado, "o leitor foi cancelado");
+  assertEquals(c.consultas.n, 0);
+});
+
+teste("corpo: sem Content-Length e dentro do limite (10 blocos de 100 kB) lê tudo", async (c) => {
+  const corpo = " ".repeat(1_000_000);
+  const { resposta, estado } = postarEmBlocos(c.manipular, 10, 100_000, await assinar(corpo));
+  const r = await resposta;
+  assertEquals(r.status, 400, "assinatura certa, mas não é JSON: passou do limite sem 413");
+  await r.body?.cancel();
+  assertEquals(estado.pulls, 10);
+  assert(!estado.cancelado);
 });
 
 teste("texto acima de 2200 caracteres é cortado (limite da coluna) em vez de perder o comentário", async (c) => {
