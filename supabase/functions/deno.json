@@ -1,6 +1,6 @@
 {
   "imports": {
-    "@electric-sql/pglite": "npm:@electric-sql/pglite@0.5.10",
+    "@electric-sql/pglite": "npm:@electric-sql/pglite@0.5.8",
     "@std/assert": "jsr:@std/assert@1",
     "@supabase/supabase-js": "jsr:@supabase/supabase-js@2"
   }
