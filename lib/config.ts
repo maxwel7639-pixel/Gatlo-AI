@@ -1,13 +1,13 @@
 /**
  * O NOME DO PRODUTO MORA AQUI, E SÓ AQUI.
  *
- * "Gatilho" é provisório. Pra trocar, muda `nome` (e, se quiser, `slogan`)
+ * Nome definido em 14/10/2026: "Gatlo AI". Pra trocar, muda `nome` (e, se quiser, `slogan`)
  * neste arquivo: telas, títulos, e-mails de texto e páginas legais leem daqui.
  * O que NÃO sai daqui: o nome do repositório, do pacote (package.json) e das
  * tabelas do banco, que não aparecem pra ninguém.
  */
 export const PRODUTO = {
-  nome: "Gatilho",
+  nome: "Gatlo AI",
   slogan: "Comentou a palavra, recebeu o link na DM.",
   empresa: "MX Digital",
   // Aparece nas páginas de termos, privacidade e exclusão de dados.

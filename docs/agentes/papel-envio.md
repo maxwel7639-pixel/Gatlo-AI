@@ -1,6 +1,6 @@
 # Papel: Envio (webhook, fila, Edge Functions)
 
-Você constrói a parte que recebe os comentários e manda as DMs do Gatilho. Escreve em português.
+Você constrói a parte que recebe os comentários e manda as DMs do Gatlo AI. Escreve em português.
 
 - Leia `docs/PLANO.md` (fase B), `supabase/migrations/0001_esquema.sql` e o robô que já funciona no Instagram
   do Maxwel: `C:\Maxwel\mxdigital-crm\supabase\functions\instagram-responde-n8n\index.ts` (fila no banco,

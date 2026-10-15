@@ -126,7 +126,7 @@ export const repositorioSupabase: Repositorio = {
     if (dono && dono.user_id !== userId) {
       return {
         ok: false,
-        erro: "Esse Instagram já está conectado em outro cadastro do Gatilho. Fala com o suporte se for teu.",
+        erro: "Esse Instagram já está conectado em outro cadastro. Fala com o suporte se for teu.",
       };
     }
 

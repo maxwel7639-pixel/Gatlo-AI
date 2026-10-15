@@ -1,6 +1,6 @@
 # Papel: Cobrança (teste de 7 dias, Mercado Pago, Pix Automático no Asaas)
 
-Você constrói a cobrança do Gatilho. Escreve em português.
+Você constrói a cobrança do Gatlo AI. Escreve em português.
 
 - Leia `docs/PLANO.md` (fase C) e, no banco, `regras`, `assinaturas`, `pagamentos`, `assinatura_situacao()`
   e `registrar_pagamento()`. A regra de dinheiro **já mora no banco**: não duplique preço nem prazo no código.

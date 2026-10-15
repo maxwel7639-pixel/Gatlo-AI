@@ -1,4 +1,4 @@
-# Como montar a obra do Gatilho no Maestri
+# Como montar a obra do Gatlo AI no Maestri
 
 1. Abra o Maestri e crie um workspace novo chamado **gatilho**.
 2. **Diretório do workspace: `C:\Maxwel\gatilho`.** Sem diretório, o `maestri floor` recusa (se já criou

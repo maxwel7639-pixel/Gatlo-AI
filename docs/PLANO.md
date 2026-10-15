@@ -1,6 +1,6 @@
-# Gatilho · plano por fases
+# Gatlo AI · plano por fases
 
-> O nome "Gatilho" é provisório. Pra trocar: `lib/config.ts` (`PRODUTO.nome`).
+> Nome do produto: **Gatlo AI** (`lib/config.ts`, `PRODUTO.nome`). Repositório: github.com/maxwel7639-pixel/Gatlo-AI. As variáveis internas seguem com o prefixo `GATILHO_` (ninguém vê).
 
 | Fase | O quê | Situação |
 |---|---|---|
@@ -34,7 +34,7 @@ As métricas do post (alcance, visualizações, salvamentos, compartilhamentos) 
 
 ## Fase B · receber comentários e mandar as DMs (esboço)
 
-A mesma lógica do robô do @maxwel_dev (`mxdigital-crm/supabase/functions/instagram-responde-n8n`), só que **multi-conta**: tabelas do Gatilho, token por conta, fila e pausa por conta.
+A mesma lógica do robô do @maxwel_dev (`mxdigital-crm/supabase/functions/instagram-responde-n8n`), só que **multi-conta**: tabelas do Gatlo AI, token por conta, fila e pausa por conta.
 
 ### B1. Edge Function `gatilho-webhook` (pública, `verify_jwt` desligado)
 
@@ -130,5 +130,5 @@ Já está no banco: `regras.preco_mensal_centavos = 9790`, `teste_dias = 7`, `ca
    - iniciar a verificação da empresa (CNPJ) no Business Manager.
 4. **Subdomínio** no DNS (CNAME pra Vercel).
 5. **Asaas**: conta, chave de API (sandbox e produção) e Pix Automático habilitado.
-6. **Mercado Pago**: credenciais de produção (de preferência uma aplicação só do Gatilho) e a assinatura secreta do webhook.
+6. **Mercado Pago**: credenciais de produção (de preferência uma aplicação só do Gatlo AI) e a assinatura secreta do webhook.
 7. **Gerar** `GATILHO_CHAVE_TOKENS` e `CRON_SECRET` (comandos no `.env.example`) direto na Vercel.

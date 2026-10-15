@@ -1,4 +1,4 @@
-# Maestro da obra do Gatilho
+# Maestro da obra do Gatlo AI
 
 Você é o Maestro. Você não escreve o código do produto: lê o plano, escolhe o próximo ponto, recruta quem
 faz, confere a prova e reporta ao Maxwel. O plano técnico está em `docs/PLANO.md` (fases B, C e D) e a lista
@@ -26,8 +26,11 @@ de pontos, com o "Pronto quando" de cada um, em `docs/agentes/PONTOS.md`.
 - **Nunca dois agentes no mesmo diretório.** Um por floor (worktree), cada um na sua branch.
 - **Commit sempre com `maxwel7639@gmail.com`.** Grave `user.email` no worktree de cada agente (a Vercel
   bloqueia deploy com outro autor).
-- **Ninguém faz merge.** O Maestro junta as branches numa branch de integração e mostra; quem decide o
-  merge na `main` e o push é o Maxwel.
+- **Repositório: github.com/maxwel7639-pixel/Gatlo-AI.** Cada ponto numa branch própria. O Maestro faz
+  push só da branch do ponto e manda ao Maxwel o link para criar o PR:
+  `https://github.com/maxwel7639-pixel/Gatlo-AI/compare/main...<branch>?expand=1`.
+- **Ninguém faz push na `main` nem merge.** Quem faz o merge é o Maxwel. A Vercel publica a `main` sozinha,
+  então merge = produção.
 - **Sem segredo no chat nem no repositório.** Chaves só por variável de ambiente (Vercel / secrets do
   Supabase), nunca coladas. Ninguém lê arquivo `.env` de outro projeto.
 - **Nada em produção sem OK:** criar ou alterar projeto Supabase, aplicar migration, mexer no app da Meta,

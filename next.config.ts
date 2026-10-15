@@ -40,7 +40,7 @@ const CABECALHOS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   // Link que sai do painel leva só o domínio, não o caminho inteiro.
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  // O Gatilho não usa câmera, microfone, localização nem pagamento do navegador.
+  // O Gatlo AI não usa câmera, microfone, localização nem pagamento do navegador.
   {
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=(), payment=()",

@@ -1,10 +1,10 @@
-# Gatilho
+# Gatlo AI
 
 SaaS da MX Digital: o cliente conecta o Instagram dele, escolhe um post (ou qualquer post), define a
 palavra-chave e a mensagem com link, e **quem comentar a palavra recebe o link na DM**, numa fila que
 respeita o limite do Instagram.
 
-> "Gatilho" é nome provisório. Pra trocar, muda `PRODUTO.nome` em `lib/config.ts`: telas, títulos e
+> "Gatlo AI" é nome provisório. Pra trocar, muda `PRODUTO.nome` em `lib/config.ts`: telas, títulos e
 > páginas legais leem daí.
 
 Fases e o que falta: [`docs/PLANO.md`](docs/PLANO.md).
