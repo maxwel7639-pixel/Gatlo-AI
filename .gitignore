@@ -1,0 +1,34 @@
+# dependências
+/node_modules
+/.pnp
+.pnp.*
+
+# testes
+/coverage
+
+# next.js
+/.next/
+/out/
+/build
+
+# diversos
+.DS_Store
+*.pem
+.playwright-mcp/
+
+# depuração
+npm-debug.log*
+
+# variáveis de ambiente (o modelo .env.example vai pro git)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# banco local do modo demonstração (cadastros e automações de teste)
+/.gatilho-demo/

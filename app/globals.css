@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/*
+  Identidade MX Digital (26/09/2026): azul vivo #1E50F0 no botão, #7FA6FF no
+  texto/link, fundo preto frio #07090C, fonte Figtree. Tema escuro é o padrão.
+*/
+:root {
+  --fundo: #07090c;
+  --superficie: #0d1117;
+  --superficie-2: #131a24;
+  --superficie-3: #1a2230;
+  --borda: #1f2836;
+  --borda-forte: #2b3647;
+  --texto: #e8edf5;
+  --suave: #8d98ab;
+  --apagado: #5d687b;
+  --azul: #1e50f0;
+  --azul-hover: #3563f5;
+  --azul-claro: #7fa6ff;
+  --verde: #34d399;
+  --amarelo: #fbbf24;
+  --vermelho: #f87171;
+}
+
+@theme inline {
+  --color-fundo: var(--fundo);
+  --color-superficie: var(--superficie);
+  --color-superficie-2: var(--superficie-2);
+  --color-superficie-3: var(--superficie-3);
+  --color-borda: var(--borda);
+  --color-borda-forte: var(--borda-forte);
+  --color-texto: var(--texto);
+  --color-suave: var(--suave);
+  --color-apagado: var(--apagado);
+  --color-azul: var(--azul);
+  --color-azul-hover: var(--azul-hover);
+  --color-azul-claro: var(--azul-claro);
+  --color-verde: var(--verde);
+  --color-amarelo: var(--amarelo);
+  --color-vermelho: var(--vermelho);
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  background-color: var(--fundo);
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--fundo);
+  color: var(--texto);
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01";
+}
+
+::selection {
+  background: color-mix(in srgb, var(--azul) 55%, transparent);
+  color: #fff;
+}
+
+/* foco visível pra quem navega no teclado */
+:where(a, button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--azul-claro);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* brilho azul discreto no topo da landing */
+.brilho-topo {
+  background:
+    radial-gradient(60% 50% at 50% 0%, color-mix(in srgb, var(--azul) 22%, transparent), transparent 70%);
+}
+
+/* números alinhados nas tabelas e contadores */
+.numeros {
+  font-variant-numeric: tabular-nums;
+}
+
+/* animação da prévia: o comentário "vira" DM */
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.surgir {
+  animation: surgir 0.5s ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .surgir {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* rolagem horizontal sem barra (lista de posts no celular) */
+.sem-barra {
+  scrollbar-width: none;
+}
+.sem-barra::-webkit-scrollbar {
+  display: none;
+}
