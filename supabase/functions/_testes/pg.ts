@@ -4,7 +4,7 @@ import type { AutomacaoAtiva, Banco, ContaAlvo, NovoComentario } from "../gatilh
 /**
  * Postgres de verdade (PGlite, em memória) para os testes das Edge Functions.
  * Cria antes o mínimo que o Supabase já tem (schema auth, papéis, privilégios) e
- * aplica supabase/migrations/0001_esquema.sql INTEIRA. Nada de rede, nada de
+ * aplica TODAS as supabase/migrations/*.sql, em ordem. Nada de rede, nada de
  * projeto Supabase: some junto com o processo.
  */
 
@@ -32,8 +32,11 @@ const MINIMO_DO_SUPABASE = `
 export async function criarPostgres(): Promise<PGlite> {
   const db = new PGlite();
   await db.exec(MINIMO_DO_SUPABASE);
-  const migration = await Deno.readTextFile(new URL("../../migrations/0001_esquema.sql", import.meta.url));
-  await db.exec(migration);
+  // TODAS as migrations, em ordem (0001, 0002, ...), como o Supabase aplicaria
+  const pasta = new URL("../../migrations/", import.meta.url);
+  const arquivos: string[] = [];
+  for await (const e of Deno.readDir(pasta)) if (e.isFile && e.name.endsWith(".sql")) arquivos.push(e.name);
+  for (const nome of arquivos.sort()) await db.exec(await Deno.readTextFile(new URL(nome, pasta)));
   return db;
 }
 
