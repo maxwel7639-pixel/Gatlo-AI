@@ -1,4 +1,5 @@
 import type { PGlite } from "@electric-sql/pglite";
+import { inserirComentarioPg } from "./pg.ts";
 import type {
   AutomacaoEnvio,
   Banco,
@@ -47,6 +48,8 @@ export function bancoEnviaSobrePg(db: PGlite): { banco: Banco; consultas: { n: n
           envioPausaRespostaMin: pegar("envio_pausa_resposta_min"),
           respostasPublicasMax24h: pegar("respostas_publicas_max_24h"),
           filaJanelaDias: pegar("fila_janela_dias"),
+          consultaPostsRecentesDias: pegar("consulta_posts_recentes_dias"),
+          consultaPostsPorRodada: pegar("consulta_posts_por_rodada"),
         } satisfies Regras;
       }),
 
@@ -73,6 +76,25 @@ export function bancoEnviaSobrePg(db: PGlite): { banco: Banco; consultas: { n: n
         );
         const l = r.rows[0];
         return { direct_ate: iso(l?.direct_ate), resposta_ate: iso(l?.resposta_ate) } satisfies Pausa;
+      }),
+
+    automacoesAtivas: (contaId) =>
+      comoServico(async (q) => {
+        const r = await q.query<
+          { id: string; qualquer_post: boolean; media_id: string | null; palavras: string[]; criado_em: Date }
+        >(
+          `select id, qualquer_post, media_id, palavras, criado_em from public.automacoes
+           where conta_id = $1 and ativa order by criado_em, id`,
+          [contaId],
+        );
+        return r.rows.map((l) => ({ ...l, criado_em: l.criado_em.toISOString() }));
+      }),
+
+    registrarComentarios: (lista) =>
+      comoServico(async (q) => {
+        let n = 0;
+        for (const c of lista) if (await inserirComentarioPg(q, c)) n++;
+        return n;
       }),
 
     token: (contaId) =>

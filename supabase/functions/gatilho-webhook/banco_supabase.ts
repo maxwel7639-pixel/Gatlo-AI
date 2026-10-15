@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { inserirComentarios } from "../_shared/comentario.ts";
 import type { AutomacaoAtiva, Banco, ContaAlvo, NovoComentario } from "./processar.ts";
 
 /**
@@ -44,14 +45,8 @@ export function bancoSupabase(
     },
 
     async registrarComentario(c: NovoComentario): Promise<boolean> {
-      // upsert + ignoreDuplicates = "insert ... on conflict (comment_id) do nothing";
-      // o select devolve só as linhas que entraram (vazio = o comment_id já existia)
-      const { data, error } = await sb
-        .from("comentarios")
-        .upsert(c, { onConflict: "comment_id", ignoreDuplicates: true })
-        .select("id");
-      if (error) throw new Error(`comentarios: ${error.message}`);
-      return (data?.length ?? 0) > 0;
+      // o mesmo insert da leitura de reserva (_shared/comentario.ts): on conflict (comment_id) do nothing
+      return (await inserirComentarios(sb, c)) > 0;
     },
   };
 }

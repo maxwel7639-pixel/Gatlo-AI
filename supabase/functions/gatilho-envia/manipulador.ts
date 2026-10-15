@@ -27,6 +27,8 @@ const CONTAS_EM_PARALELO = 3;
 // Reserva mais velha que isto é de uma rodada que morreu e volta pra fila. Bem acima da rodada
 // mais longa possível (100 s + 3 chamadas de 15 s = ~145 s), para nunca pegar uma em voo.
 const RECUPERACAO_MS = 10 * 60_000;
+// O intervalo do pg_cron (B3). O rodízio de posts da leitura de reserva avança uma posição por rodada.
+const RODADA_MS = 3 * 60_000;
 
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } });
@@ -68,6 +70,7 @@ export function criarManipulador(dep: Dependencias) {
         orcamentoMs: dep.orcamentoMs ?? ORCAMENTO_MS,
         contasEmParalelo: CONTAS_EM_PARALELO,
         recuperacaoMs: RECUPERACAO_MS,
+        rodadaMs: RODADA_MS,
         sortear: dep.sortear ?? Math.random,
       });
       console.log("[gatilho-envia]", JSON.stringify(resumo));

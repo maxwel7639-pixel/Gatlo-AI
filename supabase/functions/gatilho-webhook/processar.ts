@@ -1,4 +1,12 @@
-import { palavraQueBateu } from "../_shared/palavras.ts";
+import {
+  type AutomacaoAtiva,
+  ehProprioOuResposta,
+  escolherAutomacao,
+  montarComentario,
+  type NovoComentario,
+} from "../_shared/comentario.ts";
+
+export type { AutomacaoAtiva, NovoComentario };
 
 /**
  * A lógica do webhook de comentários, separada do banco: tudo que ela precisa
@@ -8,26 +16,6 @@ import { palavraQueBateu } from "../_shared/palavras.ts";
 export interface ContaAlvo {
   id: string;
   user_id: string;
-}
-
-export interface AutomacaoAtiva {
-  id: string;
-  qualquer_post: boolean;
-  media_id: string | null;
-  palavras: string[];
-}
-
-export interface NovoComentario {
-  comment_id: string;
-  user_id: string;
-  conta_id: string;
-  automacao_id: string;
-  media_id: string;
-  autor_ig_id: string | null;
-  autor_username: string | null;
-  texto: string;
-  palavra: string;
-  comentado_em: string;
 }
 
 export interface Banco {
@@ -48,9 +36,6 @@ export type Resumo = {
   erros: number;
 };
 
-// texto da coluna comentarios.texto: no máximo 2200 caracteres
-const TEXTO_MAX = 2200;
-
 const comoTexto = (v: unknown): string | null =>
   typeof v === "string" && v ? v : typeof v === "number" ? String(v) : null;
 
@@ -62,21 +47,6 @@ function quando(tempo: unknown): string {
   const s = typeof tempo === "number" ? tempo : Number(tempo);
   const d = Number.isFinite(s) && s > 0 ? new Date(s * 1000) : new Date();
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
-}
-
-/** Primeiro as automações do post, depois as de "qualquer post"; dentro de cada grupo, a mais antiga. */
-function escolherAutomacao(
-  automacoes: AutomacaoAtiva[],
-  mediaId: string,
-  texto: string,
-): { automacao: AutomacaoAtiva; palavra: string } | null {
-  const doPost = automacoes.filter((a) => !a.qualquer_post && a.media_id === mediaId);
-  const dequalquer = automacoes.filter((a) => a.qualquer_post);
-  for (const a of [...doPost, ...dequalquer]) {
-    const palavra = palavraQueBateu(texto, a.palavras);
-    if (palavra) return { automacao: a, palavra };
-  }
-  return null;
 }
 
 /**
@@ -112,7 +82,7 @@ export async function processarCorpo(banco: Banco, corpo: unknown): Promise<Resu
         const autor = objeto(valor.from);
         const autorId = comoTexto(autor?.id);
         // comentário da própria conta, ou resposta a outro comentário: nunca dispara
-        if (autorId === igUserId || comoTexto(valor.parent_id)) {
+        if (ehProprioOuResposta(igUserId, autorId, Boolean(comoTexto(valor.parent_id)))) {
           resumo.ignorados++;
           continue;
         }
@@ -132,18 +102,16 @@ export async function processarCorpo(banco: Banco, corpo: unknown): Promise<Resu
           continue;
         }
 
-        const gravou = await banco.registrarComentario({
-          comment_id: commentId,
-          user_id: conta.user_id,
-          conta_id: conta.id,
-          automacao_id: escolha.automacao.id,
-          media_id: mediaId,
-          autor_ig_id: autorId,
-          autor_username: comoTexto(autor?.username),
-          texto: [...texto].slice(0, TEXTO_MAX).join(""),
-          palavra: escolha.palavra,
-          comentado_em: quando(entrada.time),
-        });
+        const gravou = await banco.registrarComentario(
+          montarComentario(conta, escolha, {
+            commentId,
+            mediaId,
+            autorId,
+            autorUsername: comoTexto(autor?.username),
+            texto,
+            comentadoEm: quando(entrada.time),
+          }),
+        );
         if (gravou) resumo.gravados++;
         else resumo.repetidos++;
       } catch (e) {

@@ -1,7 +1,8 @@
 import { assert, assertEquals, assertNotEquals } from "@std/assert";
 import type { PGlite } from "@electric-sql/pglite";
 import { cifrar } from "../../../lib/cripto.ts";
-import { criarPostgres, criarUsuario } from "../_testes/pg.ts";
+import { bancoSobrePg, criarPostgres, criarUsuario } from "../_testes/pg.ts";
+import { processarCorpo } from "../gatilho-webhook/processar.ts";
 import { bancoEnviaSobrePg } from "../_testes/pg_envia.ts";
 import { criarManipulador } from "./manipulador.ts";
 import { criarMeta, ehLimite, foiRecusa, textoDoErro } from "./meta.ts";
@@ -74,15 +75,31 @@ type OpcoesAutomacao = {
   ativa?: boolean;
   mensagem?: string;
   titulo?: string;
+  /** B2b: automação de um post específico (media_id) em vez de "qualquer post" */
+  mediaId?: string;
+  palavras?: string[];
+  /** B2b: há quantos ms a automação foi criada (padrão: agora) */
+  criadaHa?: number;
 };
 
 async function novaAutomacao(db: PGlite, c: Conta, o: OpcoesAutomacao = {}) {
   const r = await db.query<{ id: string; codigo: string }>(
     `insert into public.automacoes
-       (user_id, conta_id, nome, qualquer_post, palavras, mensagem_dm, link_url, link_titulo, resposta_publica, ativa)
-     values ($1, $2, 'teste', true, array['quero'], $3, 'https://exemplo.invalid/oferta', $4, $5, $6)
+       (user_id, conta_id, nome, qualquer_post, media_id, palavras, mensagem_dm, link_url, link_titulo, resposta_publica, ativa, criado_em)
+     values ($1, $2, 'teste', $7, $8, $9, $3, 'https://exemplo.invalid/oferta', $4, $5, $6, coalesce($10::timestamptz, now()))
      returning id, codigo`,
-    [c.userId, c.contaId, o.mensagem ?? "Aqui está o seu link!", o.titulo ?? "Abrir", o.resposta ?? null, o.ativa ?? true],
+    [
+      c.userId,
+      c.contaId,
+      o.mensagem ?? "Aqui está o seu link!",
+      o.titulo ?? "Abrir",
+      o.resposta ?? null,
+      o.ativa ?? true,
+      o.mediaId === undefined,
+      o.mediaId ?? null,
+      o.palavras ?? ["quero"],
+      o.criadaHa === undefined ? null : new Date(Date.now() - o.criadaHa).toISOString(),
+    ],
   );
   return r.rows[0];
 }
@@ -168,12 +185,23 @@ const erroMeta = (status: number, code: number, message: string) =>
   Response.json({ error: { message, type: "OAuthException", code } }, { status });
 const LIMITE = () => erroMeta(400, 4, "Application request limit reached");
 
-function metaFalsa(responder?: Responder) {
+type Leitura = { url: URL; token: string };
+type LerResponder = (l: Leitura, n: number) => Response | Promise<Response>;
+const lerVazio: LerResponder = () => ok({ data: [] });
+
+function metaFalsa(responder?: Responder, lerResponder?: LerResponder) {
   const chamadas: Chamada[] = [];
+  const leituras: Leitura[] = [];
   const falso: typeof fetch = async (entrada, init) => {
     const pedido = new Request(entrada as RequestInfo, init);
     const url = new URL(pedido.url);
     assertEquals(url.origin, "https://graph.instagram.com", "a função só fala com a Meta");
+    if (pedido.method === "GET") {
+      // a leitura de reserva (B2b): as chamadas de leitura ficam separadas das de envio
+      const leitura: Leitura = { url, token: (pedido.headers.get("authorization") ?? "").replace("Bearer ", "") };
+      leituras.push(leitura);
+      return await (lerResponder ?? lerVazio)(leitura, leituras.length);
+    }
     assertEquals(pedido.method, "POST");
     const corpo = await pedido.json();
     const tipo = url.pathname.endsWith("/replies") ? "resposta" : corpo.message?.attachment ? "botao" : "texto";
@@ -194,6 +222,7 @@ function metaFalsa(responder?: Responder) {
   return {
     fetch: falso,
     chamadas,
+    leituras,
     de: (commentId: string) => chamadas.filter((c) => c.commentId === commentId),
   };
 }
@@ -253,6 +282,7 @@ async function executar(
     orcamentoMs: 100_000,
     contasEmParalelo: 3,
     recuperacaoMs: 10 * MINUTO,
+    rodadaMs: 3 * MINUTO,
     sortear: sorteioComSemente(1),
     ...mais,
   });
@@ -1481,7 +1511,7 @@ teste("contas em paralelo, poucas por vez", async (c) => {
   let pico = 0;
   const meta = metaFalsa(async () => {
     pico = Math.max(pico, ++emVoo);
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 100));
     emVoo--;
     return ok({ recipient_id: "1" });
   });
@@ -1524,4 +1554,308 @@ Deno.test("textoDoErro: curto, em uma linha, com o código", () => {
   assertEquals(textoDoErro({ code: 100, message: "a\n b   c" }), "(100) a b c");
   assertEquals(textoDoErro({ message: "y".repeat(400) }).length, 250);
   assertEquals(textoDoErro({ message: "" }), "erro sem mensagem");
+});
+
+// ================================================================ B2b. leitura de reserva
+
+const HORA = 60 * MINUTO;
+
+/** Um comentário como a Meta devolve em GET /<post>/comments. `ha` = há quantos ms a pessoa comentou. */
+type ComentarioLido = {
+  id: string;
+  text?: string;
+  ha?: number;
+  /** undefined = uma pessoa qualquer; null = a Meta não mandou `from` */
+  from?: { id: string; username?: string } | null;
+  replies?: { id: string; from?: { id: string } }[];
+};
+type PostLido = { id: string; ha?: number };
+
+const iso = (ha: number) => new Date(Date.now() - ha).toISOString();
+
+/** GET /me/media e GET /<post>/comments de mentira. `erros` troca a resposta de um caminho ("posts" ou o id do post). */
+function leituraFalsa(
+  posts: PostLido[],
+  comentarios: Record<string, ComentarioLido[]>,
+  erros: Record<string, () => Response> = {},
+): LerResponder {
+  return (l) => {
+    const p = l.url.pathname;
+    const chave = p.endsWith("/me/media") ? "posts" : decodeURIComponent(p.split("/").at(-2)!);
+    if (erros[chave]) return erros[chave]();
+    if (chave === "posts") return ok({ data: posts.map((x) => ({ id: x.id, timestamp: iso(x.ha ?? HORA) })) });
+    return ok({
+      data: (comentarios[chave] ?? []).map((x) => ({
+        id: x.id,
+        text: x.text ?? "quero muito",
+        username: "fulano",
+        timestamp: iso(x.ha ?? 10 * MINUTO),
+        ...(x.from === null ? {} : { from: x.from ?? { id: `pessoa-${x.id}`, username: "fulano" } }),
+        ...(x.replies ? { replies: { data: x.replies } } : {}),
+      })),
+    });
+  };
+}
+
+/** Os ids dos posts cujos comentários foram pedidos (um GET /<post>/comments por leitura). */
+const postsLidos = (m: MetaFalsa) =>
+  m.leituras
+    .filter((l) => l.url.pathname.endsWith("/comments"))
+    .map((l) => decodeURIComponent(l.url.pathname.split("/").at(-2)!));
+const idsNaFila = async (db: PGlite, contaId: string) =>
+  (await db.query<{ comment_id: string }>(
+    `select comment_id from public.comentarios where conta_id = $1 order by comment_id`,
+    [contaId],
+  )).rows.map((l) => l.comment_id);
+
+teste("B2b a. lê os comentários, aplica o filtro do webhook e põe na fila (e a DM sai na mesma rodada)", async (c) => {
+  const conta = await novaConta(c.db);
+  const auto = await novaAutomacao(c.db, conta, { palavras: ["promoção"], criadaHa: DIA });
+  const meta = metaFalsa(
+    undefined,
+    leituraFalsa([{ id: "P1" }], {
+      P1: [
+        { id: "c1", text: "Eu QUERO a PROMOCAO!!" }, // maiúscula e acento não contam
+        { id: "c2", text: "bom dia" }, // sem palavra
+        { id: "c3", text: "promoção", from: { id: conta.igUserId } }, // da própria conta
+        { id: "c4", text: "promoção", replies: [{ id: "r4" }] }, // já tem resposta, autor desconhecido: não entra (como o robô)
+        { id: "c5", text: "promoção", replies: [{ id: "r5", from: { id: conta.igUserId } }] }, // respondido pela própria conta
+        { id: "c6", text: "promoção", replies: [{ id: "r6", from: { id: "outra-pessoa" } }] }, // outra pessoa respondeu: entra
+      ],
+    }),
+  );
+
+  const { resumo } = await executar(c, meta);
+
+  assertEquals(await idsNaFila(c.db, conta.contaId), ["c1", "c6"]);
+  assertEquals([resumo.novos, resumo.leituras], [2, 1]);
+  const r = await c.db.query<Record<string, unknown>>(
+    `select user_id, automacao_id, media_id, autor_ig_id, autor_username, texto, palavra, comentado_em
+     from public.comentarios where comment_id = 'c1'`,
+  );
+  const l = r.rows[0];
+  assertEquals(
+    [l.user_id, l.automacao_id, l.media_id, l.autor_ig_id, l.autor_username, l.texto, l.palavra],
+    [conta.userId, auto.id, "P1", "pessoa-c1", "fulano", "Eu QUERO a PROMOCAO!!", "promoção"],
+  );
+  assert(perto(l.comentado_em as Date, Date.now() - 10 * MINUTO), "comentado_em = o timestamp do comentário");
+
+  // o pedido à Meta: o token da conta, os campos e o limite do robô
+  assertEquals(meta.leituras.map((x) => x.url.pathname), ["/v23.0/me/media", "/v23.0/P1/comments"]);
+  const u = meta.leituras[1].url;
+  assertEquals(u.searchParams.get("fields"), "id,text,username,timestamp,from{id,username},replies{id,from{id,username}}");
+  assertEquals(u.searchParams.get("limit"), "100");
+  assertEquals(meta.leituras.map((x) => x.token), [conta.token, conta.token]);
+
+  // h. leitura ANTES do envio: o comentário lido agora já saiu na DM desta mesma rodada
+  assertEquals(meta.chamadas.map((x) => x.commentId).sort(), ["c1", "c6"]);
+  assertEquals(resumo.enviadas, 2);
+  assert((await linha(c.db, "c1")).dm_em !== null);
+});
+
+teste("B2b b. ler de novo, ou já ter vindo pelo webhook, não duplica", async (c) => {
+  const conta = await novaConta(c.db);
+  await novaAutomacao(c.db, conta, { palavras: ["promoção"], criadaHa: DIA });
+  const leitura = leituraFalsa([{ id: "P1" }], { P1: [{ id: "w1", text: "promoção" }, { id: "n1", text: "promoção" }] });
+
+  // o webhook (B1) já tinha gravado o w1, com o mesmo insert
+  const resumoWh = await processarCorpo(bancoSobrePg(c.db).banco, {
+    entry: [{
+      id: conta.igUserId,
+      time: Math.floor(Date.now() / 1000),
+      changes: [{
+        field: "comments",
+        value: { id: "w1", text: "promoção", media: { id: "P1" }, from: { id: "pessoa-w1", username: "fulano" } },
+      }],
+    }],
+  });
+  assertEquals(resumoWh.gravados, 1);
+
+  const um = await executar(c, metaFalsa(undefined, leitura));
+  assertEquals(um.resumo.novos, 1, "só o n1 é novo");
+  const dois = await executar(c, metaFalsa(undefined, leitura));
+  assertEquals(dois.resumo.novos, 0, "a segunda leitura não acha nada novo");
+  assertEquals(await idsNaFila(c.db, conta.contaId), ["n1", "w1"]);
+});
+
+teste("B2b c. uma leitura por post por rodada, no máximo M posts por conta, e o rodízio troca de posts", async (c) => {
+  const conta = await novaConta(c.db);
+  await novaAutomacao(c.db, conta, { mediaId: "P1", criadaHa: DIA });
+  await novaAutomacao(c.db, conta, { mediaId: "P2", criadaHa: DIA });
+  await novaAutomacao(c.db, conta, { criadaHa: DIA }); // qualquer post
+  const leitura = leituraFalsa(["P1", "P2", "P3", "P4", "P5"].map((id) => ({ id })), {});
+
+  // P1 e P2 também aparecem em /me/media, mas cada post é lido UMA vez
+  let meta = metaFalsa(undefined, leitura);
+  await executar(c, meta);
+  assertEquals([...postsLidos(meta)].sort(), ["P1", "P2", "P3", "P4", "P5"]);
+
+  // M = 2: duas leituras por rodada; em rodadas seguidas, posts diferentes, e em 5 rodadas todos
+  await mudarRegra(c.db, "consulta_posts_por_rodada", 2);
+  const base = Math.floor(Date.now() / (3 * MINUTO)) * 3 * MINUTO;
+  const rodadas: string[][] = [];
+  for (let i = 0; i < 5; i++) {
+    meta = metaFalsa(undefined, leitura);
+    await executar(c, meta, { agora: () => base + i * 3 * MINUTO });
+    assertEquals(postsLidos(meta).length, 2, `rodada ${i}: no máximo M posts`);
+    assertEquals(meta.leituras.filter((l) => l.url.pathname.endsWith("/me/media")).length, 1);
+    rodadas.push(postsLidos(meta));
+  }
+  for (let i = 1; i < 5; i++) assertNotEquals(rodadas[i].join(), rodadas[i - 1].join(), `rodada ${i} difere da anterior`);
+  assertEquals([...new Set(rodadas.flat())].sort(), ["P1", "P2", "P3", "P4", "P5"], "ninguém fica sempre de fora");
+});
+
+teste("B2b d. comentário anterior à automação, ou fora da janela da fila, não entra", async (c) => {
+  const nova = await novaConta(c.db);
+  await novaAutomacao(c.db, nova, { criadaHa: 2 * HORA }); // qualquer post, criada há 2 h
+  const velha = await novaConta(c.db);
+  await novaAutomacao(c.db, velha, { criadaHa: 10 * DIA }); // a janela da fila é de 6 dias
+  const meta = metaFalsa(undefined, (l, n) =>
+    leituraFalsa([{ id: "P1" }], {
+      P1: l.token === nova.token
+        ? [{ id: "antes", ha: 3 * HORA }, { id: "depois", ha: HORA }]
+        : [{ id: "fora", ha: 7 * DIA }, { id: "dentro", ha: 5 * DIA }],
+    })(l, n));
+
+  await executar(c, meta);
+
+  assertEquals(await idsNaFila(c.db, nova.contaId), ["depois"]);
+  assertEquals(await idsNaFila(c.db, velha.contaId), ["dentro"]);
+});
+
+teste("B2b d. com duas automações que batem, vale a que já existia quando a pessoa comentou", async (c) => {
+  const conta = await novaConta(c.db);
+  const antiga = await novaAutomacao(c.db, conta, { criadaHa: 2 * HORA }); // qualquer post
+  const doPost = await novaAutomacao(c.db, conta, { mediaId: "P1", criadaHa: 30 * MINUTO });
+  const meta = metaFalsa(
+    undefined,
+    leituraFalsa([{ id: "P1" }], { P1: [{ id: "velho", ha: HORA }, { id: "novo", ha: 10 * MINUTO }] }),
+  );
+
+  await executar(c, meta);
+
+  const r = await c.db.query<{ comment_id: string; automacao_id: string }>(
+    `select comment_id, automacao_id from public.comentarios order by comment_id`,
+  );
+  assertEquals(r.rows, [
+    { comment_id: "novo", automacao_id: doPost.id }, // a do post vence a de "qualquer post" quando as duas existem
+    { comment_id: "velho", automacao_id: antiga.id }, // a do post ainda não existia
+  ]);
+});
+
+teste("B2b e. assinatura vencida, sem automação ativa, demonstração, sem token ou token vencido: nenhuma leitura", async (c) => {
+  const vencida = await novaConta(c.db);
+  await c.db.query(`update public.assinaturas set trial_ate = now() - interval '1 second' where user_id = $1`, [vencida.userId]);
+  await novaConta(c.db); // sem nenhuma automação
+  const desligada = await novaConta(c.db);
+  const demo = await novaConta(c.db, { demonstracao: true });
+  const semToken = await novaConta(c.db, { token: "sem" });
+  const tokenVencido = await novaConta(c.db, { token: "vencido" });
+  const expirada = await novaConta(c.db, { status: "expirada" });
+  for (const conta of [vencida, demo, semToken, tokenVencido, expirada]) await novaAutomacao(c.db, conta, { criadaHa: DIA });
+  await novaAutomacao(c.db, desligada, { ativa: false, criadaHa: DIA });
+  const meta = metaFalsa(undefined, leituraFalsa([{ id: "P1" }], { P1: [{ id: "x1" }] }));
+
+  const { resumo } = await executar(c, meta);
+
+  assertEquals(meta.leituras.length, 0, "nem uma chamada de leitura");
+  assertEquals(meta.chamadas.length, 0);
+  assertEquals(resumo.leituras, 0);
+  assertEquals((await c.db.query(`select 1 from public.comentarios`)).rows.length, 0);
+});
+
+teste("B2b f. limite da Meta na leitura: para de ler a conta, o envio segue, a pausa não muda e as outras contas leem", async (c) => {
+  const noPost = await novaConta(c.db); // o limite vem na leitura dos comentários do 1º post
+  const naLista = await novaConta(c.db); // o limite vem em /me/media
+  const normal = await novaConta(c.db);
+  for (const conta of [noPost, naLista, normal]) {
+    const auto = await novaAutomacao(c.db, conta, { criadaHa: DIA });
+    if (conta !== normal) await fila(c.db, conta, auto.id, 1); // já na fila: tem que sair mesmo sem a leitura
+  }
+  await novaAutomacao(c.db, noPost, { mediaId: "P-um", criadaHa: DIA });
+  await novaAutomacao(c.db, noPost, { mediaId: "P-dois", criadaHa: DIA });
+  const limite = () => erroMeta(400, 4, "Application request limit reached");
+  const meta = metaFalsa(undefined, (l, n) => {
+    const doLimite: Record<string, () => Response> = l.token === noPost.token
+      ? { "P-um": limite, "P-dois": limite, "P1": limite }
+      : l.token === naLista.token
+      ? { posts: limite }
+      : {};
+    return leituraFalsa([{ id: "P1" }], { P1: [{ id: "ok1" }] }, doLimite)(l, n);
+  });
+
+  const { resumo } = await executar(c, meta);
+
+  const deConta = (conta: Conta) => meta.leituras.filter((l) => l.token === conta.token);
+  // a conta tem 3 posts (2 específicos + P1 de /me/media), mas o 1º limite encerra a leitura dela
+  assertEquals(deConta(noPost).filter((l) => l.url.pathname.endsWith("/comments")).length, 1);
+  assertEquals(deConta(naLista).map((l) => l.url.pathname), ["/v23.0/me/media"], "parou na lista");
+  assertEquals(resumo.leituraLimite, 2);
+  assertEquals(resumo.enviadas, 3, "as 2 DMs que já estavam na fila saíram, e a da conta normal (lida agora) também");
+  assertEquals(await pausaDe(c.db, noPost.contaId), null, "a pausa de DM não mudou");
+  assertEquals(await pausaDe(c.db, naLista.contaId), null);
+  assertEquals(await idsNaFila(c.db, normal.contaId), ["ok1"], "a conta sem problema leu e enviou");
+  assertEquals(resumo.falhas, 0);
+});
+
+teste("B2b f. erro de outro tipo em um post: pula o post e lê os outros", async (c) => {
+  const conta = await novaConta(c.db);
+  await novaAutomacao(c.db, conta, { mediaId: "P1", criadaHa: DIA });
+  await novaAutomacao(c.db, conta, { mediaId: "P2", criadaHa: DIA });
+  const meta = metaFalsa(
+    undefined,
+    leituraFalsa([], { P1: [{ id: "a" }], P2: [{ id: "b" }] }, { P1: () => erroMeta(400, 100, "Unsupported get request") }),
+  );
+
+  const { r } = await capturandoLog(() => executar(c, meta));
+
+  assertEquals(postsLidos(meta).sort(), ["P1", "P2"], "os dois foram tentados");
+  assertEquals(await idsNaFila(c.db, conta.contaId), ["b"]);
+  assertEquals(r.resumo.leituraLimite, 0);
+  assertEquals(await pausaDe(c.db, conta.contaId), null);
+});
+
+teste("B2b g. N (dias de post recente) e M (posts por rodada) vêm da tabela regras", async (c) => {
+  const conta = await novaConta(c.db);
+  await novaAutomacao(c.db, conta, { criadaHa: 30 * DIA });
+  const leitura = leituraFalsa([{ id: "novo", ha: DIA }, { id: "medio", ha: 4 * DIA }, { id: "velho", ha: 9 * DIA }], {});
+  const lerPosts = async () => {
+    const meta = metaFalsa(undefined, leitura);
+    await executar(c, meta);
+    return postsLidos(meta).sort();
+  };
+
+  assertEquals(await lerPosts(), ["medio", "novo"], "padrão: 7 dias");
+  await mudarRegra(c.db, "consulta_posts_recentes_dias", 2);
+  assertEquals(await lerPosts(), ["novo"]);
+  await mudarRegra(c.db, "consulta_posts_recentes_dias", 30);
+  assertEquals(await lerPosts(), ["medio", "novo", "velho"]);
+  await mudarRegra(c.db, "consulta_posts_por_rodada", 1);
+  assertEquals((await lerPosts()).length, 1);
+  await mudarRegra(c.db, "consulta_posts_por_rodada", 2);
+  assertEquals((await lerPosts()).length, 2);
+});
+
+teste("B2b g. sem as regras da leitura na tabela, a rodada falha alto (nunca um número inventado)", async (c) => {
+  await c.db.query(`delete from public.regras where chave = 'consulta_posts_por_rodada'`);
+  const erro = await executar(c, metaFalsa()).then(() => null, (e: Error) => e);
+  assert(erro && erro.message.includes("consulta_posts_por_rodada"), String(erro));
+});
+
+teste("B2b j. a leitura gasta o orçamento de tempo da rodada", async (c) => {
+  const conta = await novaConta(c.db);
+  for (const id of ["P1", "P2", "P3"]) await novaAutomacao(c.db, conta, { mediaId: id, criadaHa: DIA });
+  let gasto = 0;
+  const base = Date.now();
+  const leitura = leituraFalsa([], {});
+  // cada leitura "demora" 60 s; o orçamento é de 100 s
+  const meta = metaFalsa(undefined, (l, n) => {
+    gasto += 60_000;
+    return leitura(l, n);
+  });
+
+  const { resumo } = await executar(c, meta, { agora: () => base + gasto, orcamentoMs: 100_000 });
+
+  assertEquals(postsLidos(meta).length, 2, "a 3ª leitura já não começou");
+  assertEquals(resumo.orcamento, true);
 });

@@ -106,6 +106,19 @@ export async function contarComentarios(db: PGlite): Promise<number> {
   return r.rows[0].n;
 }
 
+/** O insert do webhook e da leitura de reserva: on conflict (comment_id) do nothing. true = entrou. */
+export async function inserirComentarioPg(q: PGlite, c: NovoComentario): Promise<boolean> {
+  const r = await q.query(
+    `insert into public.comentarios
+       (comment_id, user_id, conta_id, automacao_id, media_id, autor_ig_id, autor_username, texto, palavra, comentado_em)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     on conflict (comment_id) do nothing
+     returning id`,
+    [c.comment_id, c.user_id, c.conta_id, c.automacao_id, c.media_id, c.autor_ig_id, c.autor_username, c.texto, c.palavra, c.comentado_em],
+  );
+  return r.rows.length > 0;
+}
+
 // ---------------------------------------------------------------- o Banco, sobre o Postgres
 
 /**
@@ -146,18 +159,7 @@ export function bancoSobrePg(db: PGlite): { banco: Banco; consultas: { n: number
         return r.rows;
       }),
 
-    registrarComentario: (c: NovoComentario) =>
-      comoServico(async (q) => {
-        const r = await q.query(
-          `insert into public.comentarios
-             (comment_id, user_id, conta_id, automacao_id, media_id, autor_ig_id, autor_username, texto, palavra, comentado_em)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           on conflict (comment_id) do nothing
-           returning id`,
-          [c.comment_id, c.user_id, c.conta_id, c.automacao_id, c.media_id, c.autor_ig_id, c.autor_username, c.texto, c.palavra, c.comentado_em],
-        );
-        return r.rows.length > 0;
-      }),
+    registrarComentario: (c: NovoComentario) => comoServico((q) => inserirComentarioPg(q, c)),
   };
   return { banco, consultas };
 }

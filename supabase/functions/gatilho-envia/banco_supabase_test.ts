@@ -37,6 +37,8 @@ Deno.test("regras lê a tabela e devolve cada número pelo nome (regra faltando 
     ["envio_pausa_resposta_min", 45],
     ["respostas_publicas_max_24h", 200],
     ["fila_janela_dias", 6],
+    ["consulta_posts_recentes_dias", 7],
+    ["consulta_posts_por_rodada", 5],
     ["teste_dias", 7],
   ].map(([chave, valor]) => ({ chave, valor }));
   const { banco, pedidos } = comRespostas([{ corpo: linhas }, { corpo: linhas.slice(1) }]);
@@ -48,6 +50,8 @@ Deno.test("regras lê a tabela e devolve cada número pelo nome (regra faltando 
     envioPausaRespostaMin: 45,
     respostasPublicasMax24h: 200,
     filaJanelaDias: 6,
+    consultaPostsRecentesDias: 7,
+    consultaPostsPorRodada: 5,
   });
   assertEquals(caminho(pedidos[0]), "/rest/v1/regras");
   assertEquals(pedidos[0].headers.get("authorization"), `Bearer ${CHAVE_FALSA}`);

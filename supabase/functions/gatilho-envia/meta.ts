@@ -45,7 +45,25 @@ export function foiRecusa(erro: ErroMeta): boolean {
   return !erro.rede && erro.status !== undefined && erro.status >= 400 && erro.status < 500 && !ehLimite(erro);
 }
 
+export type PostMeta = { id: string; timestamp: string | null };
+export type RespostaMeta = { id: string; autorId: string | null };
+export type ComentarioMeta = {
+  id: string;
+  texto: string;
+  username: string | null;
+  timestamp: string | null;
+  autorId: string | null;
+  autorUsername: string | null;
+  /** respostas que já existem embaixo deste comentário */
+  respostas: RespostaMeta[];
+};
+export type ResultadoLista<T> = { ok: true; itens: T[] } | { ok: false; erro: ErroMeta };
+
 export type Meta = {
+  /** GET /me/media: as publicações mais recentes da conta (a rodada filtra pela data). */
+  listarPosts(): Promise<ResultadoLista<PostMeta>>;
+  /** GET /<media>/comments: no máximo 100 comentários do post, com as respostas que já têm. */
+  listarComentarios(mediaId: string): Promise<ResultadoLista<ComentarioMeta>>;
   /** Resposta privada com o modelo de botão (template button, um web_url). */
   enviarBotao(
     igUserId: string,
@@ -67,6 +85,10 @@ export function criarMeta(o: {
 }): Meta {
   const base = `https://graph.instagram.com/${o.versao || VERSAO_PADRAO}`;
   const timeoutMs = o.timeoutMs ?? 15_000;
+
+  const objeto = (v: unknown): Record<string, unknown> | null =>
+    v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+  const texto = (v: unknown): string | null => (typeof v === "string" && v ? v : typeof v === "number" ? String(v) : null);
 
   async function postar(caminho: string, corpo: unknown): Promise<ResultadoMeta> {
     let r: Response;
@@ -93,7 +115,71 @@ export function criarMeta(o: {
     return { ok: true, recipient_id: json?.recipient_id ?? null, message_id: json?.message_id ?? json?.id ?? null };
   }
 
+  async function ler(caminho: string): Promise<{ ok: true; data: unknown[] } | { ok: false; erro: ErroMeta }> {
+    let r: Response;
+    try {
+      r = await o.fetch(`${base}/${caminho}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${o.token}` },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (e) {
+      return { ok: false, erro: { message: e instanceof Error ? e.message : String(e), rede: true } };
+    }
+    const json = (await r.json().catch(() => null)) as
+      | { error?: { code?: number; message?: string }; data?: unknown }
+      | null;
+    if (json?.error) {
+      return {
+        ok: false,
+        erro: { code: json.error.code, message: json.error.message ?? "erro sem mensagem", status: r.status },
+      };
+    }
+    if (!r.ok) return { ok: false, erro: { message: `Meta respondeu HTTP ${r.status}`, status: r.status } };
+    return { ok: true, data: Array.isArray(json?.data) ? json.data : [] };
+  }
+
   return {
+    async listarPosts() {
+      const r = await ler("me/media?fields=id,timestamp&limit=100");
+      if (!r.ok) return r;
+      return {
+        ok: true,
+        itens: r.data.flatMap((m) => {
+          const p = objeto(m);
+          const id = texto(p?.id);
+          return id ? [{ id, timestamp: texto(p?.timestamp) }] : [];
+        }),
+      };
+    },
+    async listarComentarios(mediaId) {
+      // NÃO usar comments_count do post: a Meta devolve 0 (lição do robô do @maxwel_dev)
+      const campos = "id,text,username,timestamp,from{id,username},replies{id,from{id,username}}";
+      const r = await ler(`${encodeURIComponent(mediaId)}/comments?fields=${campos}&limit=100`);
+      if (!r.ok) return r;
+      return {
+        ok: true,
+        itens: r.data.flatMap((m) => {
+          const c = objeto(m);
+          const id = texto(c?.id);
+          if (!id) return [];
+          const de = objeto(c?.from);
+          const respostas = objeto(c?.replies)?.data;
+          return [{
+            id,
+            texto: typeof c?.text === "string" ? c.text : "",
+            username: texto(c?.username),
+            timestamp: texto(c?.timestamp),
+            autorId: texto(de?.id),
+            autorUsername: texto(de?.username),
+            respostas: (Array.isArray(respostas) ? respostas : []).flatMap((x) => {
+              const rid = texto(objeto(x)?.id);
+              return rid ? [{ id: rid, autorId: texto(objeto(objeto(x)?.from)?.id) }] : [];
+            }),
+          }];
+        }),
+      };
+    },
     enviarBotao: (igUserId, commentId, p) =>
       postar(`${encodeURIComponent(igUserId)}/messages`, {
         recipient: { comment_id: commentId },

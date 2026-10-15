@@ -1,3 +1,5 @@
+import type { NovoComentario } from "../_shared/comentario.ts";
+import { type AutomacaoLeitura, consultarConta } from "./consulta.ts";
 import { ehLimite, foiRecusa, type Meta, textoDoErro } from "./meta.ts";
 import { decifrarToken } from "./token.ts";
 
@@ -18,6 +20,10 @@ export interface Regras {
   envioPausaRespostaMin: number;
   respostasPublicasMax24h: number;
   filaJanelaDias: number;
+  /** a leitura de reserva só olha posts publicados nos últimos N dias ("qualquer post") */
+  consultaPostsRecentesDias: number;
+  /** no máximo M posts lidos por conta a cada rodada */
+  consultaPostsPorRodada: number;
 }
 
 export interface ContaEnvio {
@@ -62,6 +68,10 @@ export interface Banco {
   /** assinatura_situacao(user_id).liberada; sem assinatura = false. */
   assinaturaLiberada(userId: string): Promise<boolean>;
   pausa(contaId: string): Promise<Pausa>;
+  /** Automações com ativa = true da conta (a leitura de reserva só trabalha se houver alguma). */
+  automacoesAtivas(contaId: string): Promise<AutomacaoLeitura[]>;
+  /** insert ... on conflict (comment_id) do nothing (o mesmo do webhook). Devolve quantos entraram. */
+  registrarComentarios(lista: NovoComentario[]): Promise<number>;
   token(contaId: string): Promise<TokenGuardado | null>;
   /**
    * A fila da conta: dm_em nulo, dm_erro nulo, recebido_em depois de `desde`, por
@@ -120,6 +130,8 @@ export interface DependenciasRodada {
    * que ser bem maior que a rodada mais longa possível (orçamento + chamadas à Meta, ~2,5 min).
    */
   recuperacaoMs: number;
+  /** Constante de infraestrutura: o intervalo do agendador (3 min); o rodízio de posts avança uma posição por rodada. */
+  rodadaMs: number;
   /** Math.random em produção; os testes passam um sorteio com semente. */
   sortear: () => number;
 }
@@ -141,6 +153,12 @@ export type ResumoRodada = {
   concorrencia: number;
   /** contas cuja leitura/escrita no banco falhou (o erro vai para o log) */
   falhas: number;
+  /** posts cujos comentários a leitura de reserva pediu à Meta */
+  leituras: number;
+  /** comentários que a leitura de reserva pôs na fila */
+  novos: number;
+  /** contas cuja leitura parou porque a Meta mandou esperar */
+  leituraLimite: number;
   /** a rodada parou de começar envios por causa do orçamento de tempo */
   orcamento: boolean;
 };
@@ -172,6 +190,9 @@ export async function rodar(d: DependenciasRodada): Promise<ResumoRodada> {
     puladas: 0,
     concorrencia: 0,
     falhas: 0,
+    leituras: 0,
+    novos: 0,
+    leituraLimite: 0,
     orcamento: false,
   };
 
@@ -233,26 +254,64 @@ async function rodarConta(
     return;
   }
 
-  // 3. a fila
+  // o token só é aberto quando alguém precisa (ler ou enviar). Sem token ou vencido: pula sem
+  // marcar erro em ninguém.
+  let meta: Meta | null | undefined;
+  const abrirMeta = async (): Promise<Meta | null> => {
+    if (meta !== undefined) return meta;
+    meta = null;
+    const guardado = await banco.token(conta.id);
+    if (!guardado || (guardado.expira_em && Date.parse(guardado.expira_em) <= d.agora())) return meta;
+    try {
+      meta = d.meta(await decifrarToken(guardado.token_cifrado, d.chaveTokens));
+    } catch {
+      console.error(`[gatilho-envia] conta ${conta.id}: token ilegível (chave trocada ou dado corrompido)`);
+    }
+    return meta;
+  };
+
+  // 3. a leitura de reserva (B2b): só com automação ativa. Os comentários novos entram na fila
+  // aqui, antes de ela ser montada, e saem na DM desta mesma rodada. Se a Meta mandar esperar na
+  // leitura, só a leitura para; o envio segue, e a pausa de DM não muda.
+  const automacoes = await banco.automacoesAtivas(conta.id);
+  if (automacoes.length > 0) {
+    const m = await abrirMeta();
+    if (!m) {
+      resumo.puladas++;
+      return;
+    }
+    try {
+      const lido = await consultarConta({
+        conta,
+        automacoes,
+        meta: m,
+        registrar: (lista) => banco.registrarComentarios(lista),
+        regras,
+        agora: d.agora(),
+        rodadaMs: d.rodadaMs,
+        estourou,
+      });
+      resumo.leituras += lido.leituras;
+      resumo.novos += lido.novos;
+      if (lido.limite) resumo.leituraLimite++;
+      if (lido.orcamento) resumo.orcamento = true;
+    } catch (e) {
+      // falha do banco na leitura não impede o envio do que já está na fila
+      resumo.falhas++;
+      console.error(`[gatilho-envia] conta ${conta.id}: leitura:`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // 4. a fila
   const desde = new Date(d.agora() - regras.filaJanelaDias * DIA_MS);
   const fila = await banco.fila(conta.id, desde, regras.envioMaxPorRodada, new Date(d.agora() - d.recuperacaoMs));
   if (fila.length === 0) return;
-
-  // 4. o token (só se há o que enviar). Sem token ou vencido: pula sem marcar erro em ninguém.
-  const guardado = await banco.token(conta.id);
-  if (!guardado || (guardado.expira_em && Date.parse(guardado.expira_em) <= d.agora())) {
+  const m = await abrirMeta();
+  if (!m) {
     resumo.puladas++;
     return;
   }
-  let token: string;
-  try {
-    token = await decifrarToken(guardado.token_cifrado, d.chaveTokens);
-  } catch {
-    console.error(`[gatilho-envia] conta ${conta.id}: token ilegível (chave trocada ou dado corrompido)`);
-    resumo.puladas++;
-    return;
-  }
-  const meta = d.meta(token);
+  meta = m;
 
   let respostas24h: number | null = null; // só lê se alguém precisar
   let respostaAte = pausa.resposta_ate ? Date.parse(pausa.resposta_ate) : 0;

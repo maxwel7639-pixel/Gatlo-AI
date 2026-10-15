@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { inserirComentarios } from "../_shared/comentario.ts";
+import type { AutomacaoLeitura } from "./consulta.ts";
 import type { AutomacaoEnvio, Banco, ContaEnvio, ItemFila, Pausa, Regras, TokenGuardado } from "./rodada.ts";
 
 const PAGINA = 1000; // o PostgREST devolve no máximo 1000 linhas por pedido
@@ -10,6 +12,8 @@ const CHAVES_DAS_REGRAS = {
   envioPausaRespostaMin: "envio_pausa_resposta_min",
   respostasPublicasMax24h: "respostas_publicas_max_24h",
   filaJanelaDias: "fila_janela_dias",
+  consultaPostsRecentesDias: "consulta_posts_recentes_dias",
+  consultaPostsPorRodada: "consulta_posts_por_rodada",
 } as const satisfies Record<keyof Regras, string>;
 
 /**
@@ -76,6 +80,21 @@ export function bancoSupabase(
       if (error) throw falhou("envio_pausa", error);
       return { direct_ate: data?.direct_ate ?? null, resposta_ate: data?.resposta_ate ?? null };
     },
+
+    async automacoesAtivas(contaId): Promise<AutomacaoLeitura[]> {
+      const { data, error } = await sb
+        .from("automacoes")
+        .select("id, qualquer_post, media_id, palavras, criado_em")
+        .eq("conta_id", contaId)
+        .eq("ativa", true)
+        .order("criado_em", { ascending: true })
+        .order("id", { ascending: true });
+      if (error) throw falhou("automacoes", error);
+      return data ?? [];
+    },
+
+    // o mesmo insert do webhook (_shared/comentario.ts): on conflict (comment_id) do nothing
+    registrarComentarios: (lista) => inserirComentarios(sb, lista),
 
     async token(contaId): Promise<TokenGuardado | null> {
       const { data, error } = await sb
