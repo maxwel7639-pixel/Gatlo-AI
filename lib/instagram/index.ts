@@ -4,6 +4,7 @@ import { cifrar, decifrar } from "../cripto";
 import type { ContaInstagram } from "../dados/tipos";
 import { ErroMeta, listarPosts, renovarToken } from "./meta";
 import { postsDemo } from "./demo";
+import { type ContaParaInscrever, reinscrever } from "./reinscrever";
 import type { Post } from "./tipos";
 
 export type { Post, Metricas, PerfilInstagram } from "./tipos";
@@ -118,4 +119,41 @@ export async function renovarTokensVencendo(): Promise<{ renovados: number; expi
     }
   }
   return { renovados, expirados, falhas };
+}
+
+/**
+ * Inscreve de novo, nos avisos de comentário (webhook), TODAS as contas conectadas que não
+ * são demonstração. Roda no cron diário, depois de renovar os tokens: conserta a conta cuja
+ * inscrição falhou na hora de conectar (POST subscribed_apps é idempotente). Uma conta com
+ * problema vai para o log e não para as outras.
+ */
+export async function reinscreverContasConectadas(): Promise<{ inscritas: number; falhas: number }> {
+  const admin = createAdminClient();
+  const contas: ContaParaInscrever[] = [];
+  let semToken = 0;
+  const PAGINA = 1000; // o PostgREST devolve no máximo 1000 linhas por pedido
+  for (let de = 0; ; de += PAGINA) {
+    const { data, error } = await admin
+      .from("contas_instagram")
+      .select("id, tokens_instagram(token_cifrado, expira_em)")
+      .eq("status", "conectada")
+      .eq("demonstracao", false)
+      .order("id", { ascending: true })
+      .range(de, de + PAGINA - 1);
+    if (error) throw new Error(`contas: ${error.message}`);
+    for (const linha of data ?? []) {
+      // embed "para um" (conta_id é a chave de tokens_instagram): objeto, ou lista de um
+      const t = Array.isArray(linha.tokens_instagram) ? linha.tokens_instagram[0] : linha.tokens_instagram;
+      try {
+        if (!t) throw new Error("sem token guardado");
+        contas.push({ id: linha.id, token: decifrar(t.token_cifrado) });
+      } catch (e) {
+        semToken++;
+        console.error("[reinscrever]", linha.id, (e as Error).message);
+      }
+    }
+    if ((data?.length ?? 0) < PAGINA) break;
+  }
+  const r = await reinscrever(contas);
+  return { inscritas: r.inscritas, falhas: r.falhas + semToken };
 }
