@@ -394,8 +394,6 @@ create policy automacoes_dono_cria on public.automacoes
     user_id = (select auth.uid())
     and exists (select 1 from public.contas_instagram c
                 where c.id = conta_id and c.user_id = (select auth.uid()))
-    -- freio contra abuso: até 50 automações por cadastro
-    and (select count(*) from public.automacoes a where a.user_id = (select auth.uid())) < 50
   );
 create policy automacoes_dono_edita on public.automacoes
   for update to authenticated
@@ -406,6 +404,25 @@ create policy automacoes_dono_apaga on public.automacoes
 
 create trigger automacoes_atualizado_em before update on public.automacoes
   for each row execute function public.tocar_atualizado_em();
+
+-- Freio contra abuso: até 50 automações por cadastro. Num gatilho, e não na
+-- política de insert: política que consulta a própria tabela entra em
+-- recursão infinita no Postgres.
+create or replace function public.limite_automacoes()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if (select count(*) from public.automacoes where user_id = new.user_id) >= 50 then
+    raise exception 'limite de 50 automações por cadastro' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.limite_automacoes() from public, anon, authenticated;
+create trigger automacoes_limite before insert on public.automacoes
+  for each row execute function public.limite_automacoes();
 create index automacoes_user_idx on public.automacoes (user_id, criado_em desc);
 create index automacoes_ativas_idx on public.automacoes (conta_id) where ativa;
 
