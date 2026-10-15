@@ -8,6 +8,7 @@ export const metadata: Metadata = { title: "Entrar" };
 const ERROS: Record<string, string> = {
   link_invalido: "Esse link não vale mais. Entra com e-mail e senha.",
   link_expirado: "O link venceu ou já foi usado. Entra com e-mail e senha, ou pede outro em \"esqueci a senha\".",
+  conta_excluida: "Conta excluída. Teus dados foram apagados.",
 };
 
 export default async function Entrar({

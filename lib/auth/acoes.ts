@@ -17,7 +17,12 @@ import {
   senhaConfere,
 } from "./sessao";
 
-export type EstadoAuth = { erro?: string; aviso?: string; link?: string };
+/**
+ * O que a ação devolve pra tela. `email` e `nome` voltam junto porque o React
+ * limpa o formulário depois de cada envio: sem eles, a pessoa erra a senha e
+ * ainda tem que digitar o e-mail de novo.
+ */
+export type EstadoAuth = { erro?: string; aviso?: string; link?: string; email?: string; nome?: string };
 
 const SENHA_MINIMA = 8;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,9 +59,14 @@ async function gravarSessaoLocal(userId: string) {
 
 /* ------------------------------------------------------------------ entrar */
 
-export async function entrar(_: EstadoAuth, form: FormData): Promise<EstadoAuth> {
-  if (faltaConfigurarBanco) return { erro: AVISO_SEM_CONFIGURACAO };
+export async function entrar(anterior: EstadoAuth, form: FormData): Promise<EstadoAuth> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const r = await entrarDeVerdade(form, email);
+  return { ...r, email };
+}
+
+async function entrarDeVerdade(form: FormData, email: string): Promise<EstadoAuth> {
+  if (faltaConfigurarBanco) return { erro: AVISO_SEM_CONFIGURACAO };
   const senha = String(form.get("senha") ?? "");
   if (!email || !senha) return { erro: "Preenche e-mail e senha." };
 
@@ -87,10 +97,15 @@ export async function entrar(_: EstadoAuth, form: FormData): Promise<EstadoAuth>
 
 /* ---------------------------------------------------------------- cadastrar */
 
-export async function cadastrar(_: EstadoAuth, form: FormData): Promise<EstadoAuth> {
-  if (faltaConfigurarBanco) return { erro: AVISO_SEM_CONFIGURACAO };
+export async function cadastrar(anterior: EstadoAuth, form: FormData): Promise<EstadoAuth> {
   const nome = String(form.get("nome") ?? "").trim().slice(0, 80);
   const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const r = await cadastrarDeVerdade(form, nome, email);
+  return { ...r, nome, email };
+}
+
+async function cadastrarDeVerdade(form: FormData, nome: string, email: string): Promise<EstadoAuth> {
+  if (faltaConfigurarBanco) return { erro: AVISO_SEM_CONFIGURACAO };
   const senha = String(form.get("senha") ?? "");
 
   if (!nome) return { erro: "Como a gente te chama?" };
@@ -154,9 +169,14 @@ export async function cadastrar(_: EstadoAuth, form: FormData): Promise<EstadoAu
 const RESPOSTA_RECUPERAR =
   "Se existir conta com esse e-mail, o link pra trocar a senha já saiu. Olha a caixa de entrada e o spam.";
 
-export async function recuperarSenha(_: EstadoAuth, form: FormData): Promise<EstadoAuth> {
-  if (faltaConfigurarBanco) return { erro: AVISO_SEM_CONFIGURACAO };
+export async function recuperarSenha(anterior: EstadoAuth, form: FormData): Promise<EstadoAuth> {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
+  const r = await recuperarDeVerdade(email);
+  return { ...r, email };
+}
+
+async function recuperarDeVerdade(email: string): Promise<EstadoAuth> {
+  if (faltaConfigurarBanco) return { erro: AVISO_SEM_CONFIGURACAO };
   if (!EMAIL.test(email)) return { erro: "Esse e-mail não parece certo." };
 
   // A resposta é sempre a mesma (exista a conta ou não, estoure o limite ou

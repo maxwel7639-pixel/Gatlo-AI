@@ -64,7 +64,7 @@ export function FormEntrar({ proximo }: { proximo: string }) {
     <form action={acao} className="space-y-5">
       <input type="hidden" name="proximo" value={proximo} />
       <Campo rotulo="E-mail" htmlFor="email">
-        <input id="email" name="email" type="email" required autoComplete="email" className={classeEntrada} />
+        <input id="email" name="email" type="email" required autoComplete="email" defaultValue={estado.email} className={classeEntrada} />
       </Campo>
       <Campo
         rotulo="Senha"
@@ -90,10 +90,10 @@ export function FormCadastro() {
   return (
     <form action={acao} className="space-y-5">
       <Campo rotulo="Teu nome" htmlFor="nome">
-        <input id="nome" name="nome" required maxLength={80} autoComplete="name" className={classeEntrada} />
+        <input id="nome" name="nome" required maxLength={80} autoComplete="name" defaultValue={estado.nome} className={classeEntrada} />
       </Campo>
       <Campo rotulo="E-mail" htmlFor="email">
-        <input id="email" name="email" type="email" required autoComplete="email" className={classeEntrada} />
+        <input id="email" name="email" type="email" required autoComplete="email" defaultValue={estado.email} className={classeEntrada} />
       </Campo>
       <Campo rotulo="Senha" htmlFor="senha" dica="Pelo menos 8 caracteres.">
         <CampoSenha id="senha" autoComplete="new-password" />
@@ -130,7 +130,7 @@ export function FormRecuperar() {
   return (
     <form action={acao} className="space-y-5">
       <Campo rotulo="E-mail da conta" htmlFor="email">
-        <input id="email" name="email" type="email" required autoComplete="email" className={classeEntrada} />
+        <input id="email" name="email" type="email" required autoComplete="email" defaultValue={estado.email} className={classeEntrada} />
       </Campo>
       <Mensagens estado={estado} />
       <button type="submit" disabled={enviando} className={`${classeBotao()} w-full`}>

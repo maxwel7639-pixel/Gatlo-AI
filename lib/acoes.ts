@@ -167,5 +167,5 @@ export async function excluirConta(_: EstadoExclusao, form: FormData): Promise<E
   }
 
   revalidatePath("/", "layout");
-  redirect("/?conta_excluida=1");
+  redirect("/entrar?erro=conta_excluida");
 }
