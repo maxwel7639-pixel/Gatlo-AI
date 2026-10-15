@@ -25,3 +25,4 @@ começa depois que ele disser "pode".
 | Data | Ponto | Branch | Prova |
 |---|---|---|---|
 | 14/10/2026 | Fase A | main (11 commits) | build, tsc e lint passando; fluxo completo testado no modo demonstração (celular e computador); migration testada num Postgres local imitando o Supabase |
+| 15/10/2026 | B1 | b1-gatilho-webhook (8 commits) | `npm run teste:funcoes`: 38 passaram, 0 falharam (Postgres local com a migration 0001 inteira); `deno check` da função, tsc, lint e build passando (rodados pelo Maestro). Revisão do Vigia: 0 alto, 0 médio; 4 dos 5 baixos corrigidos. O 5º (inscrição que falha no callback só vai ao log) passa para o B2b |
