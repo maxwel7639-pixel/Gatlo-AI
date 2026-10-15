@@ -7,3 +7,9 @@
 # GET -> INSTAGRAM_WEBHOOK_VERIFY_TOKEN; POST -> X-Hub-Signature-256 (INSTAGRAM_APP_SECRET).
 [functions.gatilho-webhook]
 verify_jwt = false
+
+# Função pública, chamada pelo agendador do banco (pg_cron + pg_net), que não manda JWT do
+# Supabase. Quem protege é o próprio segredo, conferido no código antes de qualquer efeito:
+# cabeçalho x-cron-chave igual a GATILHO_CRON_CHAVE. Sem o secret configurado, responde 503.
+[functions.gatilho-envia]
+verify_jwt = false
