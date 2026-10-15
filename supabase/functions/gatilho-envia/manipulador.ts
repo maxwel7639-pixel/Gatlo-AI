@@ -15,6 +15,7 @@ export type Dependencias = {
   esperar?: (ms: number) => Promise<void>;
   agora?: () => number;
   orcamentoMs?: number;
+  sortear?: () => number;
 };
 
 // Constantes de infraestrutura (não são regras de negócio, por isso não estão na tabela
@@ -23,6 +24,9 @@ export type Dependencias = {
 // texto + resposta pública = 145 s).
 const ORCAMENTO_MS = 100_000;
 const CONTAS_EM_PARALELO = 3;
+// Reserva mais velha que isto é de uma rodada que morreu e volta pra fila. Bem acima da rodada
+// mais longa possível (100 s + 3 chamadas de 15 s = ~145 s), para nunca pegar uma em voo.
+const RECUPERACAO_MS = 10 * 60_000;
 
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } });
@@ -63,6 +67,8 @@ export function criarManipulador(dep: Dependencias) {
         agora: dep.agora ?? Date.now,
         orcamentoMs: dep.orcamentoMs ?? ORCAMENTO_MS,
         contasEmParalelo: CONTAS_EM_PARALELO,
+        recuperacaoMs: RECUPERACAO_MS,
+        sortear: dep.sortear ?? Math.random,
       });
       console.log("[gatilho-envia]", JSON.stringify(resumo));
       return json({ ok: true, ...resumo });

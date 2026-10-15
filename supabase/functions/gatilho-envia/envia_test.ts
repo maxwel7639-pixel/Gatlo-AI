@@ -120,11 +120,12 @@ type Linha = {
   igsid: string | null;
   resposta_em: Date | null;
   resposta_erro: string | null;
+  dm_reservado_em: Date | null;
 };
 
 async function linha(db: PGlite, commentId: string): Promise<Linha> {
   const r = await db.query<Linha>(
-    `select id, dm_em, dm_erro, dm_tentativas, igsid, resposta_em, resposta_erro
+    `select id, dm_em, dm_erro, dm_tentativas, igsid, resposta_em, resposta_erro, dm_reservado_em
      from public.comentarios where comment_id = $1`,
     [commentId],
   );
@@ -141,7 +142,7 @@ async function pausaDe(db: PGlite, contaId: string) {
 
 async function semMexer(db: PGlite): Promise<string> {
   const r = await db.query(
-    `select comment_id, dm_em, dm_erro, dm_tentativas, igsid, resposta_em, resposta_erro
+    `select comment_id, dm_em, dm_erro, dm_tentativas, igsid, resposta_em, resposta_erro, dm_reservado_em
      from public.comentarios order by comment_id`,
   );
   return JSON.stringify(r.rows);
@@ -200,6 +201,15 @@ type MetaFalsa = ReturnType<typeof metaFalsa>;
 
 // ---------------------------------------------------------------- rodar
 
+/** Sorteio determinístico (LCG) para os testes não dependerem de Math.random. */
+function sorteioComSemente(semente: number): () => number {
+  let x = semente >>> 0;
+  return () => {
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0;
+    return x / 2 ** 32;
+  };
+}
+
 type Cenario = Awaited<ReturnType<typeof montar>>;
 
 async function montar() {
@@ -242,6 +252,8 @@ async function executar(
     agora: Date.now,
     orcamentoMs: 100_000,
     contasEmParalelo: 3,
+    recuperacaoMs: 10 * MINUTO,
+    sortear: sorteioComSemente(1),
     ...mais,
   });
   return { resumo, esperas };
@@ -270,10 +282,17 @@ teste("a. envia a DM com o botão e o link certos e marca dm_em e igsid", async 
   const conta = await novaConta(c.db);
   const auto = await novaAutomacao(c.db, conta, { mensagem: "Oi! Segue o link.", titulo: "Ver oferta" });
   const [com] = await fila(c.db, conta, auto.id, 1);
-  const meta = metaFalsa();
+  let noVoo: Linha | null = null;
+  const meta = metaFalsa(async (ch) => {
+    noVoo = await linha(c.db, ch.commentId); // o que o banco guarda enquanto a Meta ainda não respondeu
+    return ok({ recipient_id: `igsid-${ch.commentId}`, message_id: "m" });
+  });
 
   const { resumo } = await executar(c, meta);
 
+  assertEquals(noVoo!.dm_tentativas, 1, "reservada antes de falar com a Meta");
+  assert(perto(noVoo!.dm_reservado_em, Date.now()), "com a hora da reserva");
+  assertEquals([noVoo!.dm_em, noVoo!.dm_erro], [null, null]);
   assertEquals(meta.chamadas.length, 1);
   const p = meta.chamadas[0];
   assertEquals(p.tipo, "botao");
@@ -362,6 +381,7 @@ for (
       assertEquals(l.dm_erro, null, "limite não marca erro: a pessoa segue na fila");
       assertEquals(l.dm_em, null);
       assertEquals(l.dm_tentativas, 0, "a reserva foi devolvida");
+      assertEquals(l.dm_reservado_em, null, "e a hora da reserva zerou");
     }
     assertEquals(resumo.pausadas, 1);
     assertEquals(resumo.erros, 0);
@@ -406,7 +426,7 @@ teste("b. limite que vem só depois de o botão ser recusado também pausa (e n�
 
   assertEquals(meta.chamadas.map((x) => x.tipo), ["botao", "texto"]);
   const l = await linha(c.db, com.commentId);
-  assertEquals([l.dm_erro, l.dm_em, l.dm_tentativas], [null, null, 0]);
+  assertEquals([l.dm_erro, l.dm_em, l.dm_tentativas, l.dm_reservado_em], [null, null, 0, null]);
   assertNotEquals(await pausaDe(c.db, conta.contaId), null);
 });
 
@@ -591,8 +611,8 @@ teste("f. uma conta com defeito no banco não derruba as outras", async (c) => {
   const [com] = await fila(c.db, boa, (await novaAutomacao(c.db, boa)).id, 1);
   const banco: Banco = {
     ...c.banco,
-    fila: (contaId, desde, limite) =>
-      contaId === quebrada.contaId ? Promise.reject(new Error("comentarios: boom")) : c.banco.fila(contaId, desde, limite),
+    fila: (contaId, ...resto) =>
+      contaId === quebrada.contaId ? Promise.reject(new Error("comentarios: boom")) : c.banco.fila(contaId, ...resto),
   };
   const meta = metaFalsa();
 
@@ -797,12 +817,12 @@ teste("h. reservar: só uma de várias tentativas ao mesmo tempo leva a linha; e
   await c.db.query(`update public.comentarios set dm_em = now() where id = $1`, [feito.id]);
   await c.db.query(`update public.comentarios set dm_erro = 'x' where id = $1`, [erro.id]);
 
-  const resultados = await Promise.all(Array.from({ length: 8 }, () => c.banco.reservar(com.id, 0)));
+  const resultados = await Promise.all(Array.from({ length: 8 }, () => c.banco.reservar(com.id, 0, new Date())));
   assertEquals(resultados.filter(Boolean).length, 1);
   assertEquals((await linha(c.db, com.commentId)).dm_tentativas, 1);
-  assertEquals(await c.banco.reservar(com.id, 0), false, "valor lido velho");
-  assertEquals(await c.banco.reservar(feito.id, 0), false);
-  assertEquals(await c.banco.reservar(erro.id, 0), false);
+  assertEquals(await c.banco.reservar(com.id, 0, new Date()), false, "valor lido velho");
+  assertEquals(await c.banco.reservar(feito.id, 0, new Date()), false);
+  assertEquals(await c.banco.reservar(erro.id, 0, new Date()), false);
 });
 
 teste("h. marcar dm_em / dm_erro só vale em linha que ainda tem dm_em nulo", async (c) => {
@@ -1227,6 +1247,193 @@ teste("a rodada não confia no banco para a automação desligada: item desligad
   await executar({ banco }, meta);
   assertEquals(meta.chamadas.length, 0);
   assertEquals((await linha(c.db, com.commentId)).dm_tentativas, 0);
+});
+
+// ================================================================ reserva presa (rodada que morreu)
+
+/** Deixa a linha como a de uma rodada que reservou, `haMs` atrás, e morreu: dm_tentativas > 0, sem resultado. */
+async function prender(db: PGlite, commentId: string, haMs: number, tentativas = 1) {
+  await db.query(
+    `update public.comentarios set dm_tentativas = $2, dm_reservado_em = $3 where comment_id = $1`,
+    [commentId, tentativas, new Date(Date.now() - haMs).toISOString()],
+  );
+}
+
+teste("reserva presa há mais que o limite de recuperação: volta a ser enviada, uma vez", async (c) => {
+  const conta = await novaConta(c.db);
+  const [presa, normal] = await fila(c.db, conta, (await novaAutomacao(c.db, conta, { resposta: "Te mandei!" })).id, 2);
+  await prender(c.db, presa.commentId, 11 * MINUTO);
+  const meta = metaFalsa();
+
+  const { resumo } = await executar(c, meta);
+
+  assertEquals(meta.de(presa.commentId).map((x) => x.tipo), ["botao", "resposta"]);
+  assertEquals(meta.de(normal.commentId).map((x) => x.tipo), ["botao", "resposta"]);
+  const l = await linha(c.db, presa.commentId);
+  assertNotEquals(l.dm_em, null);
+  assertEquals([l.dm_tentativas, l.dm_erro], [2, null]);
+  assert(perto(l.dm_reservado_em, Date.now()), "a hora da reserva é a da recuperação");
+  assertEquals(resumo.enviadas, 2);
+
+  // enviada, não volta de novo
+  const outra = metaFalsa();
+  await executar(c, outra);
+  assertEquals(outra.chamadas.length, 0);
+});
+
+teste("reserva presa há menos que o limite (rodada ainda em voo): ninguém pega", async (c) => {
+  const conta = await novaConta(c.db);
+  const [emVoo] = await fila(c.db, conta, (await novaAutomacao(c.db, conta)).id, 1);
+  await prender(c.db, emVoo.commentId, 2 * MINUTO);
+  const antes = await semMexer(c.db);
+  const meta = metaFalsa();
+
+  await executar(c, meta);
+
+  assertEquals(meta.chamadas.length, 0);
+  assertEquals(await semMexer(c.db), antes);
+});
+
+teste("duas rodadas ao mesmo tempo sobre uma reserva presa: 1 chamada à Meta", async (c) => {
+  const conta = await novaConta(c.db);
+  const [presa] = await fila(c.db, conta, (await novaAutomacao(c.db, conta)).id, 1);
+  await prender(c.db, presa.commentId, 30 * MINUTO);
+  const meta = metaFalsa(async () => {
+    await new Promise((r) => setTimeout(r, 5));
+    return ok({ recipient_id: "1" });
+  });
+  const cede = () => new Promise<void>((r) => setTimeout(r, 1));
+
+  const [um, dois] = await Promise.all([
+    executar(c, meta, { esperar: cede }),
+    executar(c, meta, { esperar: cede }),
+  ]);
+
+  assertEquals(meta.de(presa.commentId).length, 1);
+  assertEquals(um.resumo.enviadas + dois.resumo.enviadas, 1);
+  assertEquals((await linha(c.db, presa.commentId)).dm_tentativas, 2);
+});
+
+teste("presa de novo (dm_tentativas >= 2): dm_erro 'rodada interrompida' e nenhuma chamada à Meta", async (c) => {
+  const conta = await novaConta(c.db);
+  const [duas, recente, boa] = await fila(c.db, conta, (await novaAutomacao(c.db, conta)).id, 3);
+  await prender(c.db, duas.commentId, 20 * MINUTO, 2);
+  await prender(c.db, recente.commentId, 2 * MINUTO, 2); // ainda em voo: não se mexe
+  const meta = metaFalsa();
+
+  const { resumo } = await executar(c, meta);
+
+  const l = await linha(c.db, duas.commentId);
+  assertEquals([l.dm_erro, l.dm_em, l.dm_tentativas], ["rodada interrompida", null, 2]);
+  assertEquals(meta.de(duas.commentId).length, 0);
+  const r = await linha(c.db, recente.commentId);
+  assertEquals([r.dm_erro, r.dm_em, r.dm_tentativas], [null, null, 2]);
+  assertEquals(meta.chamadas.map((x) => x.commentId), [boa.commentId], "a fila segue");
+  assertEquals(resumo.erros, 1);
+  assertEquals(await pausaDe(c.db, conta.contaId), null);
+  const depois = metaFalsa();
+  await executar(c, depois);
+  assertEquals(depois.chamadas.length, 0, "com erro marcado, não volta");
+});
+
+teste("reserva recuperada que a Meta recusa (a DM original já tinha saído): vira dm_erro, sem DM dupla", async (c) => {
+  const conta = await novaConta(c.db);
+  const [presa] = await fila(c.db, conta, (await novaAutomacao(c.db, conta, { resposta: "Te mandei!" })).id, 1);
+  await prender(c.db, presa.commentId, 15 * MINUTO);
+  // a Meta só aceita uma resposta privada por comentário
+  const meta = metaFalsa(() => erroMeta(400, 10900, "Já existe uma resposta privada para este comentário"));
+
+  await executar(c, meta);
+
+  const l = await linha(c.db, presa.commentId);
+  assertEquals(l.dm_em, null);
+  assertEquals(l.dm_erro, "(10900) Já existe uma resposta privada para este comentário");
+  assertEquals(meta.chamadas.filter((x) => x.tipo === "resposta").length, 0, "sem resposta pública duplicada");
+});
+
+teste("limite numa reserva recuperada: devolve a reserva (volta a 1, sem hora) e sai na rodada seguinte", async (c) => {
+  const conta = await novaConta(c.db);
+  const [presa] = await fila(c.db, conta, (await novaAutomacao(c.db, conta)).id, 1);
+  await prender(c.db, presa.commentId, 15 * MINUTO);
+
+  await executar(c, metaFalsa(LIMITE));
+
+  const l = await linha(c.db, presa.commentId);
+  assertEquals([l.dm_tentativas, l.dm_reservado_em, l.dm_erro, l.dm_em], [1, null, null, null]);
+
+  await c.db.query(`update public.envio_pausa set direct_ate = now() - interval '1 minute' where conta_id = $1`, [conta.contaId]);
+  const meta = metaFalsa();
+  await executar(c, meta);
+  assertEquals(meta.de(presa.commentId).length, 1);
+  assertNotEquals((await linha(c.db, presa.commentId)).dm_em, null);
+});
+
+teste("o limite de recuperação é passado à rodada (constante de infraestrutura)", async (c) => {
+  const conta = await novaConta(c.db);
+  const [presa] = await fila(c.db, conta, (await novaAutomacao(c.db, conta)).id, 1);
+  await prender(c.db, presa.commentId, 4 * MINUTO);
+  const curto = metaFalsa();
+  await executar(c, curto, { recuperacaoMs: 3 * MINUTO });
+  assertEquals(curto.chamadas.length, 1, "com limite de 3 min, 4 min já é presa");
+});
+
+// ================================================================ rodízio das contas
+
+teste("rodízio: com o orçamento estourando na 1ª conta, rodadas com sementes diferentes atendem contas diferentes", async (c) => {
+  const contas: Conta[] = [];
+  const autos = new Map<string, string>();
+  for (let i = 0; i < 5; i++) {
+    const conta = await novaConta(c.db);
+    contas.push(conta);
+    autos.set(conta.contaId, (await novaAutomacao(c.db, conta)).id);
+  }
+
+  const atendidas: string[] = [];
+  for (let rodada = 1; rodada <= 12; rodada++) {
+    for (const conta of contas) await novoComentario(c.db, conta, autos.get(conta.contaId)!); // todas sempre com fila
+    let agora = Date.now();
+    // cada chamada à Meta "demora" 200 s no relógio de mentira: estoura o orçamento depois da 1ª conta
+    const meta = metaFalsa(() => {
+      agora += 200_000;
+      return ok({ recipient_id: "1" });
+    });
+    const { resumo } = await executar(c, meta, {
+      contasEmParalelo: 1,
+      orcamentoMs: 100_000,
+      agora: () => agora,
+      sortear: sorteioComSemente(rodada * 7919),
+    });
+    assertEquals(resumo.orcamento, true);
+    assertEquals(meta.chamadas.length, 1, "só uma conta cabe no orçamento");
+    atendidas.push(contas.find((x) => x.token === meta.chamadas[0].token)!.contaId);
+  }
+
+  assert(new Set(atendidas).size >= 4, `contas atendidas em 12 rodadas: ${new Set(atendidas).size} de 5`);
+});
+
+teste("rodízio: é um embaralhamento (todas as contas entram) e a mesma semente dá a mesma ordem", async (c) => {
+  const contas: Conta[] = [];
+  for (let i = 0; i < 6; i++) {
+    const conta = await novaConta(c.db);
+    await fila(c.db, conta, (await novaAutomacao(c.db, conta)).id, 1);
+    contas.push(conta);
+  }
+  const ordem = async (semente: number) => {
+    // devolve as filas ao começo para comparar rodadas
+    await c.db.query(
+      `update public.comentarios set dm_em = null, dm_erro = null, dm_tentativas = 0, dm_reservado_em = null, igsid = null`,
+    );
+    const meta = metaFalsa();
+    await executar(c, meta, { contasEmParalelo: 1, sortear: sorteioComSemente(semente) });
+    return meta.chamadas.map((x) => x.token);
+  };
+  const a = await ordem(42);
+  const b = await ordem(42);
+  const d = await ordem(43);
+  assertEquals(a.length, 6);
+  assertEquals(new Set(a), new Set(contas.map((x) => x.token)), "nenhuma conta ficou de fora");
+  assertEquals(a, b, "mesma semente, mesma ordem");
+  assertNotEquals(a, d, "outra semente, outra ordem");
 });
 
 // ================================================================ orçamento de tempo

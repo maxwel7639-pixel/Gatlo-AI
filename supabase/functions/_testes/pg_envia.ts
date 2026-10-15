@@ -85,7 +85,7 @@ export function bancoEnviaSobrePg(db: PGlite): { banco: Banco; consultas: { n: n
         return l ? ({ token_cifrado: l.token_cifrado, expira_em: iso(l.expira_em) } satisfies TokenGuardado) : null;
       }),
 
-    fila: (contaId, desde, limite) =>
+    fila: (contaId, desde, limite, presaAntes) =>
       comoServico(async (q) => {
         const r = await q.query<
           {
@@ -105,12 +105,13 @@ export function bancoEnviaSobrePg(db: PGlite): { banco: Banco; consultas: { n: n
            from public.comentarios c
            left join public.automacoes a on a.id = c.automacao_id
            where c.conta_id = $1
-             and c.dm_em is null and c.dm_erro is null and c.dm_tentativas = 0
+             and c.dm_em is null and c.dm_erro is null
+             and (c.dm_reservado_em is null or c.dm_reservado_em < $4::timestamptz)
              and c.recebido_em > $2::timestamptz
              and (c.automacao_id is null or a.ativa)
            order by c.recebido_em, c.id
            limit $3`,
-          [contaId, desde.toISOString(), limite],
+          [contaId, desde.toISOString(), limite, presaAntes.toISOString()],
         );
         return r.rows.map((l): ItemFila => ({
           id: l.id,
@@ -129,13 +130,13 @@ export function bancoEnviaSobrePg(db: PGlite): { banco: Banco; consultas: { n: n
         }));
       }),
 
-    reservar: (id, lido) =>
+    reservar: (id, lido, quando) =>
       comoServico(async (q) => {
         const r = await q.query(
-          `update public.comentarios set dm_tentativas = $2 + 1
+          `update public.comentarios set dm_tentativas = $2 + 1, dm_reservado_em = $3
            where id = $1 and dm_tentativas = $2 and dm_em is null and dm_erro is null
            returning id`,
-          [id, lido],
+          [id, lido, quando.toISOString()],
         );
         return r.rows.length > 0;
       }),
@@ -143,7 +144,7 @@ export function bancoEnviaSobrePg(db: PGlite): { banco: Banco; consultas: { n: n
     liberarReserva: (id, reservado) =>
       comoServico(async (q) => {
         await q.query(
-          `update public.comentarios set dm_tentativas = $2 - 1
+          `update public.comentarios set dm_tentativas = $2 - 1, dm_reservado_em = null
            where id = $1 and dm_tentativas = $2 and dm_em is null and dm_erro is null`,
           [id, reservado],
         );

@@ -111,7 +111,7 @@ Deno.test("fila: sem automação desligada, um pedido só; sem reservados, sem e
     { corpo: [] }, // automações desligadas
     { corpo: [{ id: "k1", comment_id: "C1", dm_tentativas: 0, automacoes: AUTO }, { id: "k2", comment_id: "C2", dm_tentativas: 0, automacoes: null }] },
   ]);
-  const itens = await banco.fila("c1", new Date("2026-10-09T12:00:00Z"), 6);
+  const itens = await banco.fila("c1", new Date("2026-10-09T12:00:00Z"), 6, new Date("2026-10-15T11:50:00Z"));
 
   assertEquals(itens, [
     { id: "k1", comment_id: "C1", dm_tentativas: 0, automacao: AUTO },
@@ -126,24 +126,29 @@ Deno.test("fila: sem automação desligada, um pedido só; sem reservados, sem e
   assertEquals(u.get("conta_id"), "eq.c1");
   assertEquals(u.get("dm_em"), "is.null");
   assertEquals(u.get("dm_erro"), "is.null");
-  assertEquals(u.get("dm_tentativas"), "eq.0");
+  assertEquals(u.get("dm_tentativas"), null, "a fila não filtra por dm_tentativas: quem decide é a reserva em voo");
+  assertEquals(u.getAll("or"), ["(dm_reservado_em.is.null,dm_reservado_em.lt.2026-10-15T11:50:00.000Z)"]);
   assertEquals(u.get("recebido_em"), "gt.2026-10-09T12:00:00.000Z");
   assertEquals(u.get("order"), "recebido_em.asc,id.asc");
   assertEquals(u.get("limit"), "6");
-  assertEquals(u.get("or"), null);
   assert(u.get("select")!.includes("automacoes("));
 });
 
 Deno.test("fila: comentário de automação desligada fica de fora, mas o de automação apagada (automacao_id nulo) entra", async () => {
   const { banco, pedidos } = comRespostas([{ corpo: [{ id: "d1" }, { id: "d2" }] }, { corpo: [] }]);
-  await banco.fila("c1", new Date(), 2);
-  assertEquals(q(pedidos[1]).get("or"), "(automacao_id.is.null,automacao_id.not.in.(d1,d2))");
+  await banco.fila("c1", new Date(), 2, new Date("2026-10-15T11:50:00Z"));
+  // dois filtros "or" no mesmo pedido: o PostgREST junta os dois com AND
+  assertEquals(q(pedidos[1]).getAll("or"), [
+    "(dm_reservado_em.is.null,dm_reservado_em.lt.2026-10-15T11:50:00.000Z)",
+    "(automacao_id.is.null,automacao_id.not.in.(d1,d2))",
+  ]);
 });
 
 Deno.test("reservar é UM update com a condição dentro: dm_tentativas lido, dm_em nulo, dm_erro nulo", async () => {
   const { banco, pedidos } = comRespostas([{ corpo: [{ id: "k1" }] }, { corpo: [] }]);
-  assertEquals(await banco.reservar("k1", 2), true);
-  assertEquals(await banco.reservar("k1", 2), false); // outra rodada levou: o PostgREST não devolve linha
+  const quando = new Date("2026-10-15T12:00:00Z");
+  assertEquals(await banco.reservar("k1", 2, quando), true);
+  assertEquals(await banco.reservar("k1", 2, quando), false); // outra rodada levou: o PostgREST não devolve linha
 
   const p = pedidos[0];
   assertEquals(p.method, "PATCH");
@@ -153,7 +158,7 @@ Deno.test("reservar é UM update com a condição dentro: dm_tentativas lido, dm
   assertEquals(u.get("dm_tentativas"), "eq.2");
   assertEquals(u.get("dm_em"), "is.null");
   assertEquals(u.get("dm_erro"), "is.null");
-  assertEquals(await p.json(), { dm_tentativas: 3 });
+  assertEquals(await p.json(), { dm_tentativas: 3, dm_reservado_em: "2026-10-15T12:00:00.000Z" });
   assert((p.headers.get("prefer") ?? "").includes("return=representation"), "precisa saber se alguma linha mudou");
 });
 
@@ -164,7 +169,7 @@ Deno.test("liberarReserva devolve a tentativa só de quem a reservou e só em li
   assertEquals(u.get("dm_tentativas"), "eq.1");
   assertEquals(u.get("dm_em"), "is.null");
   assertEquals(u.get("dm_erro"), "is.null");
-  assertEquals(await pedidos[0].json(), { dm_tentativas: 0 });
+  assertEquals(await pedidos[0].json(), { dm_tentativas: 0, dm_reservado_em: null });
 });
 
 Deno.test("marcarDmOk e marcarDmErro só valem em linha com dm_em nulo", async () => {
@@ -224,7 +229,7 @@ Deno.test("erro do PostgREST vira exceção (a conta falha, as outras seguem)", 
   const { banco } = comRespostas([{ status: 500, corpo: { message: "boom", code: "XX000" } }]);
   let erro: unknown = null;
   try {
-    await banco.reservar("k1", 0);
+    await banco.reservar("k1", 0, new Date());
   } catch (e) {
     erro = e;
   }

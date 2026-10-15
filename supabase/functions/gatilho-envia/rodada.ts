@@ -64,19 +64,24 @@ export interface Banco {
   pausa(contaId: string): Promise<Pausa>;
   token(contaId: string): Promise<TokenGuardado | null>;
   /**
-   * A fila da conta: dm_em nulo, dm_erro nulo, dm_tentativas = 0 (ninguém reservou),
-   * recebido_em depois de `desde`, por recebido_em, no máximo `limite`. Comentário de
-   * automação DESLIGADA não entra (fica guardado e não ocupa vaga); o de automação
-   * apagada entra, com `automacao: null`.
+   * A fila da conta: dm_em nulo, dm_erro nulo, recebido_em depois de `desde`, por
+   * recebido_em, no máximo `limite`, e SEM reserva em voo: dm_reservado_em nulo (ninguém
+   * reservou, ou a reserva foi devolvida) ou mais velho que `presaAntes` (a rodada que
+   * reservou morreu). Reserva mais nova que `presaAntes` é de uma rodada ainda trabalhando
+   * e ninguém pega. Comentário de automação DESLIGADA não entra (fica guardado e não ocupa
+   * vaga); o de automação apagada entra, com `automacao: null`.
    */
-  fila(contaId: string, desde: Date, limite: number): Promise<ItemFila[]>;
+  fila(contaId: string, desde: Date, limite: number, presaAntes: Date): Promise<ItemFila[]>;
   /**
-   * RESERVA atômica: dm_tentativas passa de `lido` para `lido + 1` só se a linha ainda
-   * tem dm_em e dm_erro nulos e dm_tentativas = `lido`. false = outra rodada levou.
-   * É a única trava contra a mesma DM sair duas vezes.
+   * RESERVA atômica: dm_tentativas passa de `lido` para `lido + 1` e dm_reservado_em recebe
+   * `quando`, só se a linha ainda tem dm_em e dm_erro nulos e dm_tentativas = `lido`. false =
+   * outra rodada levou. É a única trava contra a mesma DM sair duas vezes.
    */
-  reservar(comentarioId: string, lido: number): Promise<boolean>;
-  /** Devolve a reserva (a Meta mandou esperar): dm_tentativas volta de `reservado` para `reservado - 1`. */
+  reservar(comentarioId: string, lido: number, quando: Date): Promise<boolean>;
+  /**
+   * Devolve a reserva (a Meta mandou esperar): dm_tentativas volta de `reservado` para
+   * `reservado - 1` e dm_reservado_em zera.
+   */
   liberarReserva(comentarioId: string, reservado: number): Promise<void>;
   /** dm_em = agora e igsid, só se dm_em ainda é nulo. */
   marcarDmOk(comentarioId: string, igsid: string | null, quando: Date): Promise<void>;
@@ -110,6 +115,13 @@ export interface DependenciasRodada {
   orcamentoMs: number;
   /** Quantas contas ao mesmo tempo */
   contasEmParalelo: number;
+  /**
+   * Constante de infraestrutura: reserva mais velha que isto é de uma rodada que morreu. Tem
+   * que ser bem maior que a rodada mais longa possível (orçamento + chamadas à Meta, ~2,5 min).
+   */
+  recuperacaoMs: number;
+  /** Math.random em produção; os testes passam um sorteio com semente. */
+  sortear: () => number;
 }
 
 export type ResumoRodada = {
@@ -135,10 +147,22 @@ export type ResumoRodada = {
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
+/** Fisher-Yates sobre uma cópia; `sortear` devolve um número em [0, 1). */
+function embaralhar<T>(lista: T[], sortear: () => number): T[] {
+  const r = [...lista];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.min(i, Math.floor(sortear() * (i + 1)));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+
 export async function rodar(d: DependenciasRodada): Promise<ResumoRodada> {
   const comeco = d.agora();
   const regras = await d.banco.regras();
-  const contas = await d.banco.contasConectadas();
+  // a ordem das contas muda a cada rodada: com o orçamento de tempo estourando, as mesmas
+  // contas (as últimas por id) não ficam sempre de fora
+  const contas = embaralhar(await d.banco.contasConectadas(), d.sortear);
   const resumo: ResumoRodada = {
     contas: contas.length,
     enviadas: 0,
@@ -211,7 +235,7 @@ async function rodarConta(
 
   // 3. a fila
   const desde = new Date(d.agora() - regras.filaJanelaDias * DIA_MS);
-  const fila = await banco.fila(conta.id, desde, regras.envioMaxPorRodada);
+  const fila = await banco.fila(conta.id, desde, regras.envioMaxPorRodada, new Date(d.agora() - d.recuperacaoMs));
   if (fila.length === 0) return;
 
   // 4. o token (só se há o que enviar). Sem token ou vencido: pula sem marcar erro em ninguém.
@@ -250,6 +274,13 @@ async function rodarConta(
     // desligada: não envia e deixa na fila (se religar dentro da janela, sai)
     if (!automacao.ativa) continue;
 
+    // reserva presa que já foi recuperada uma vez e prendeu de novo: desiste, sem falar com a Meta
+    if (item.dm_tentativas >= 2) {
+      await anotar(d, () => banco.marcarDmErro(item.id, "rodada interrompida"));
+      resumo.erros++;
+      continue;
+    }
+
     // o intervalo entre uma DM e outra da mesma conta
     if (chamouMeta) {
       await d.esperar(regras.envioIntervaloSegundos * 1000);
@@ -259,8 +290,11 @@ async function rodarConta(
       }
     }
 
-    // RESERVA antes de falar com a Meta; quem não conseguir a linha pula
-    if (!(await banco.reservar(item.id, item.dm_tentativas))) {
+    // RESERVA antes de falar com a Meta; quem não conseguir a linha pula.
+    // Uma linha com dm_tentativas = 1 que chega aqui é reserva presa (a rodada anterior morreu):
+    // reenviar é seguro porque a Meta só aceita UMA resposta privada por comentário. Se a DM
+    // tinha saído, a Meta recusa esta e a linha vira dm_erro, sem DM dupla para a pessoa.
+    if (!(await banco.reservar(item.id, item.dm_tentativas, new Date(d.agora())))) {
       resumo.concorrencia++;
       continue;
     }

@@ -87,7 +87,7 @@ export function bancoSupabase(
       return data;
     },
 
-    async fila(contaId, desde, limite): Promise<ItemFila[]> {
+    async fila(contaId, desde, limite, presaAntes): Promise<ItemFila[]> {
       // automação desligada: o comentário fica guardado e não ocupa vaga na rodada
       const { data: desligadas, error: ed } = await sb
         .from("automacoes")
@@ -102,7 +102,8 @@ export function bancoSupabase(
         .eq("conta_id", contaId)
         .is("dm_em", null)
         .is("dm_erro", null)
-        .eq("dm_tentativas", 0)
+        // sem reserva em voo: nunca reservada / devolvida (nulo) ou reservada por uma rodada que morreu
+        .or(`dm_reservado_em.is.null,dm_reservado_em.lt.${presaAntes.toISOString()}`)
         .gt("recebido_em", desde.toISOString());
       if (desligadas?.length) {
         // "not in" sozinho descartaria também a automação apagada (null não é "not in" de nada)
@@ -125,11 +126,11 @@ export function bancoSupabase(
       });
     },
 
-    async reservar(comentarioId, lido): Promise<boolean> {
+    async reservar(comentarioId, lido, quando): Promise<boolean> {
       // um UPDATE só, com a condição dentro: duas rodadas ao mesmo tempo, uma ganha a linha
       const { data, error } = await sb
         .from("comentarios")
-        .update({ dm_tentativas: lido + 1 })
+        .update({ dm_tentativas: lido + 1, dm_reservado_em: quando.toISOString() })
         .eq("id", comentarioId)
         .eq("dm_tentativas", lido)
         .is("dm_em", null)
@@ -142,7 +143,7 @@ export function bancoSupabase(
     async liberarReserva(comentarioId, reservado): Promise<void> {
       const { error } = await sb
         .from("comentarios")
-        .update({ dm_tentativas: reservado - 1 })
+        .update({ dm_tentativas: reservado - 1, dm_reservado_em: null })
         .eq("id", comentarioId)
         .eq("dm_tentativas", reservado)
         .is("dm_em", null)
