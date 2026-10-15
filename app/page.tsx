@@ -76,7 +76,7 @@ export default async function Inicio() {
               d={{
                 username: "cafe.da.serra",
                 fotoUrl: "/demo/avatar",
-                miniatura: "/demo/miniatura/1",
+                miniatura: "/demo/miniatura/1?v=2",
                 autor: "ana.luiza.rs",
                 comentario: "RECEITA 🙏",
                 respostaPublica: "Te mandei no direct! 📩",

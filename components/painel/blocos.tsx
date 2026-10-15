@@ -99,11 +99,11 @@ export function ConectarInstagram({ demonstracao, expirada = false }: { demonstr
             quando quiser.
           </p>
         </div>
-        <div className="flex flex-col items-start gap-2 md:items-end">
+        <div className="flex flex-col items-stretch gap-2 md:items-end">
           {/* <a> e não <Link>: o Link pré-carrega rotas e isto aqui inicia o login */}
           <a href="/api/instagram/conectar" className={classeBotao("primario", "lg")}>
             <IconeInstagram className="size-5" />
-            {demonstracao ? "Conectar perfil de demonstração" : "Conectar Instagram"}
+            {demonstracao ? "Conectar perfil fictício" : "Conectar Instagram"}
           </a>
           {demonstracao ? (
             <p className="max-w-xs text-xs text-suave md:text-right">

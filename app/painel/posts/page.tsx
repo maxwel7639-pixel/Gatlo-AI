@@ -60,7 +60,7 @@ export default async function Posts() {
             Os números vêm do Instagram e podem atrasar até 48 h. Alcance, visualizações, salvamentos e
             compartilhamentos aparecem nos 12 posts mais novos.
           </p>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
             {resultado.posts.map((p) => (
               <CartaoPost key={p.id} post={p} automacoes={porPost.get(p.id) ?? 0} />
             ))}

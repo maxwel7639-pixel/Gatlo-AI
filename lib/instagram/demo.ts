@@ -51,7 +51,7 @@ export function postsDemo(): Post[] {
       legenda: p.legenda,
       tipo: p.tipo,
       produto: p.produto,
-      miniatura: `/demo/miniatura/${i + 1}`,
+      miniatura: `/demo/miniatura/${i + 1}?v=2`,
       permalink: null,
       // um post a cada ~2 dias, o mais novo primeiro
       publicadoEm: new Date(agora - (i * 2 + 0.3) * 86400_000).toISOString(),

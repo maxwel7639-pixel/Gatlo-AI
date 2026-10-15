@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { basePainel } from "@/lib/painel";
+import { PRODUTO } from "@/lib/config";
 import { sair } from "@/lib/auth/acoes";
 import { Logo, Selo } from "@/components/ui";
 import { NavInferior, NavLateral } from "@/components/painel/nav";
 import { IconeSair } from "@/components/icones";
 
 export const metadata: Metadata = {
-  title: "Painel",
+  title: { default: "Painel", template: `%s · ${PRODUTO.nome}` },
   robots: { index: false, follow: false },
 };
 
