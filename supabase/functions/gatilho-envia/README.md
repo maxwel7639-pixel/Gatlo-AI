@@ -117,7 +117,10 @@ supabase functions deploy gatilho-envia --project-ref <ref>
 supabase secrets set GATILHO_CRON_CHAVE=... GATILHO_SITE_URL=... --project-ref <ref>
 ```
 
-O agendador (pg_cron + pg_net, com a chave no Vault) é o B3.
+O agendador (pg_cron + pg_net, com a chave no Vault) vive em `supabase/agendador.sql`;
+o passo a passo (extensões, os dois segredos do Vault e a conferência) está em
+`supabase/README-agendador.md`. Ele chama esta função de 3 em 3 minutos com o
+cabeçalho `x-cron-chave` e roda a limpeza diária de 90 dias.
 
 ## Limites conhecidos
 
