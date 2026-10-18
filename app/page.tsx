@@ -178,8 +178,7 @@ export default async function Inicio() {
                 <ul className="mt-6 space-y-2.5 text-texto/90">
                   <li className="flex gap-2.5"><IconeCheck className="size-5 text-verde" /> {r.testeDias} dias grátis, sem cartão</li>
                   <li className="flex gap-2.5"><IconeCheck className="size-5 text-verde" /> Até 50 automações, com até 10 palavras cada</li>
-                  {/* Só cartão por enquanto: voltar a citar Pix Automático quando o C2 existir. */}
-                  <li className="flex gap-2.5"><IconeCheck className="size-5 text-verde" /> No fim do teste, a automação pausa até tu assinar: cartão (Mercado Pago)</li>
+                  <li className="flex gap-2.5"><IconeCheck className="size-5 text-verde" /> No fim do teste, a automação pausa até tu assinar: cartão (Mercado Pago) ou Pix Automático (Asaas)</li>
                   <li className="flex gap-2.5"><IconeLink className="size-5 text-verde" /> Cancela quando quiser, sem multa</li>
                 </ul>
               </div>

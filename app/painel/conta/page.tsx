@@ -10,6 +10,7 @@ import { Aviso, Avatar, Cartao, Selo, classeBotao } from "@/components/ui";
 import { CabecalhoPagina, ConectarInstagram } from "@/components/painel/blocos";
 import { ExcluirConta } from "@/components/painel/excluir-conta";
 import { AssinarCartao } from "@/components/painel/assinar-cartao";
+import { AssinarPix } from "@/components/painel/assinar-pix";
 import { IconeCheck, IconeInstagram } from "@/components/icones";
 
 export const metadata: Metadata = { title: "Conta" };
@@ -130,16 +131,22 @@ export default async function Conta({
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-2xl font-bold">{emReais(r.precoMensalCentavos)}</p>
-                  {/* Só cartão por enquanto: voltar a citar Pix Automático quando o C2 existir. */}
-                  <p className="text-xs text-suave">por mês · cartão</p>
+                  <p className="text-xs text-suave">por mês · cartão ou Pix Automático</p>
                 </div>
               </div>
             ) : (
               <p className="text-sm text-suave">Não achei a tua assinatura. Fala com o suporte.</p>
             )}
-            {/* Sem assinatura no banco não abre checkout: o clique criaria um preapproval no MP sem dono certo. */}
-            {situacao ? (
-              <AssinarCartao preco={emReais(r.precoMensalCentavos)} ativa={situacao.status === "ativa"} demonstracao={!usaSupabase} />
+            {/* Sem assinatura no banco, ou já ativa, não abre checkout: o clique criaria cobrança sem dono certo ou dobrada. */}
+            {situacao && situacao.status !== "ativa" ? (
+              usaSupabase ? (
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <AssinarCartao preco={emReais(r.precoMensalCentavos)} />
+                  <AssinarPix preco={emReais(r.precoMensalCentavos)} />
+                </div>
+              ) : (
+                <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">Assinatura só no app de verdade.</p>
+              )
             ) : null}
             {q.assinatura === "iniciada" && situacao && situacao.status !== "ativa" ? (
               <div className="mt-3">

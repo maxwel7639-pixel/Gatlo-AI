@@ -36,7 +36,8 @@ export default function Privacidade() {
         </li>
         <li>
           <strong>Pagamento:</strong> status, valor e os códigos do Mercado Pago ou do Asaas. Dado de cartão nunca
-          passa pelo {n}: fica no gateway.
+          passa pelo {n}: fica no gateway. No Pix Automático, o CPF ou CNPJ que tu digita vai direto pro Asaas e não
+          fica guardado aqui.
         </li>
       </ul>
 
