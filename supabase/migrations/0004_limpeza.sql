@@ -32,6 +32,7 @@ as $$
 declare
   v_dias  int := public.regra('limpeza_dias')::int;
   v_horas int := public.regra('limpeza_taxa_horas')::int;
+  v_fila  int := public.regra('fila_janela_dias')::int;
   c int;
   k int;
   t int;
@@ -40,6 +41,11 @@ begin
   -- limpeza vem de `regras`, e regra errada tem que doer alto, não varrer o banco.
   if v_dias < 1 then
     raise exception 'regras.limpeza_dias tem que ser pelo menos 1 dia (veio %); limpeza nao apagou nada', v_dias;
+  end if;
+  -- E o prazo tem que passar da janela da fila: senão a limpeza apagaria comentário que
+  -- ainda espera DM (a fila olha fila_janela_dias).
+  if v_dias <= v_fila then
+    raise exception 'regras.limpeza_dias (%) tem que ser maior que regras.fila_janela_dias (%); limpeza nao apagou nada', v_dias, v_fila;
   end if;
   if v_horas < 1 then
     raise exception 'regras.limpeza_taxa_horas tem que ser pelo menos 1 hora (veio %); limpeza nao apagou nada', v_horas;

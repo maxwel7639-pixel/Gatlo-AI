@@ -17,6 +17,26 @@ const CHAVES_DAS_REGRAS = {
 } as const satisfies Record<keyof Regras, string>;
 
 /**
+ * Piso e teto (inclusivos, só inteiros) de cada regra do envio. Uma linha errada na tabela
+ * `regras` (0, negativo, gigante) faz a rodada ERRAR, não quebrar a fila nem estourar limite
+ * da Meta. Os tetos têm folga sobre os valores de hoje e ficam abaixo dos limites da Meta:
+ * - envio_max_por_rodada: 30 DMs a cada 3 min = 600/h, abaixo das 750/h da resposta privada;
+ * - fila_janela_dias: 7, a janela da resposta privada da Meta (acima disso toda DM é recusada);
+ * - respostas_publicas_max_24h: 0 vale (só DM, sem resposta pública).
+ * Mexer aqui é decisão de negócio: a tabela `regras` continua sendo onde o valor mora.
+ */
+export const LIMITES_DAS_REGRAS = {
+  envioMaxPorRodada: [1, 30],
+  envioIntervaloSegundos: [1, 60],
+  envioPausaDirectMin: [1, 1440],
+  envioPausaRespostaMin: [1, 1440],
+  respostasPublicasMax24h: [0, 1000],
+  filaJanelaDias: [1, 7],
+  consultaPostsRecentesDias: [1, 30],
+  consultaPostsPorRodada: [1, 20],
+} as const satisfies Record<keyof Regras, readonly [number, number]>;
+
+/**
  * Acesso ao banco com a service role (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY, que o
  * Supabase já injeta nas Edge Functions). A service role passa por cima do RLS: por isso
  * cada consulta aqui filtra à mão e a função só roda depois de a chave do cron conferir.
@@ -44,6 +64,10 @@ export function bancoSupabase(
         const valor = porChave.get(chave);
         // sem a regra, ERRO: o envio nunca roda com um número inventado
         if (valor === undefined || !Number.isFinite(valor)) throw new Error(`regra ${chave} não existe na tabela regras`);
+        const [min, max] = LIMITES_DAS_REGRAS[campo];
+        if (!Number.isInteger(valor) || valor < min || valor > max) {
+          throw new Error(`regra ${chave} fora do limite seguro (${min} a ${max}, inteiro); veio ${valor}`);
+        }
         lida[campo] = valor;
       }
       return lida;

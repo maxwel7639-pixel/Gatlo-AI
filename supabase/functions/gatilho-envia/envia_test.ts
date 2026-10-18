@@ -754,6 +754,31 @@ testeHttp("g. sem GATILHO_CHAVE_TOKENS ou GATILHO_SITE_URL (chave do cron certa)
   assertEquals(c.meta.chamadas.length, 0);
 });
 
+testeHttp("g. GATILHO_SITE_URL: https sempre; http só em localhost/127.0.0.1; o resto 503 sem tocar no banco", async (c) => {
+  const aceitas = ["https://gatlo.exemplo.invalid", "HTTPS://gatlo.exemplo.invalid/", "http://localhost:3000", "http://localhost", "http://127.0.0.1:54321/x"];
+  const recusadas = [
+    "http://gatlo.exemplo.invalid",
+    "http://localhost.evil.invalid",
+    "http://127.0.0.1.evil.invalid",
+    "http://localhostx",
+    "http://evil.invalid/localhost",
+    "https://",
+    "https:// espaco.invalid",
+    "ftp://gatlo.exemplo.invalid",
+  ];
+  for (const url of recusadas) {
+    c.env.GATILHO_SITE_URL = url;
+    const { r } = await capturandoLog(async () => await c.chamar());
+    assertEquals(r.status, 503, `${url} devia ser recusada`);
+  }
+  assertEquals(c.bancosPedidos(), 0);
+  for (const url of aceitas) {
+    c.env.GATILHO_SITE_URL = url;
+    const { r } = await capturandoLog(async () => await c.chamar());
+    assertEquals(r.status, 200, `${url} devia ser aceita`);
+  }
+});
+
 testeHttp("g. chave certa: 200, envia, e o link usa o site sem a barra do fim", async (c) => {
   const conta = await novaConta(c.db);
   const auto = await novaAutomacao(c.db, conta);

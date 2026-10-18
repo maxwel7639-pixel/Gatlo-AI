@@ -177,3 +177,28 @@ Deno.test("limpeza: prazo 0 ou negativo recusa e não apaga nada (senão varreri
   await regra("limpeza_taxa_horas", 24);
   assertEquals(await limpar(p), { comentarios: 1, cliques: 1, taxas: 1 });
 });
+
+Deno.test("limpeza: prazo menor ou igual a fila_janela_dias recusa e não apaga nada (comentário ainda na fila)", async () => {
+  const p = await preparar();
+  await comentarioEm(p, "na-fila", 5); // dentro da janela da fila (6 dias)
+  await comentarioEm(p, "velho", 91);
+  await cliqueEm(p, 91);
+  await janelaDeTaxa(p, "velha", 48);
+
+  const regra = (chave: string, valor: number) =>
+    p.db.query(`update public.regras set valor = $2 where chave = $1`, [chave, valor]);
+
+  // igual à janela (6) e abaixo dela (3): os dois recusam, antes de qualquer delete
+  for (const dias of [6, 3]) {
+    await regra("limpeza_dias", dias);
+    await assertRejects(() => limpar(p), Error, "fila_janela_dias");
+    assertEquals(await contar(p, "from public.comentarios"), 2, `limpeza_dias=${dias}: nada devia cair`);
+    assertEquals(await contar(p, "from public.cliques"), 1);
+    assertEquals(await contar(p, "from public.limite_taxa"), 1);
+  }
+
+  // a janela da fila sobe junto: limpeza_dias passa a valer de novo só se ficar acima dela
+  await regra("limpeza_dias", 7);
+  assertEquals(await limpar(p), { comentarios: 1, cliques: 1, taxas: 1 });
+  assertEquals(await contar(p, "from public.comentarios"), 1, "o comentário da fila ficou");
+});

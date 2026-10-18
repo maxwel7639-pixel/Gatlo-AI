@@ -30,6 +30,11 @@ const RECUPERACAO_MS = 10 * 60_000;
 // O intervalo do pg_cron (B3). O rodízio de posts da leitura de reserva avança uma posição por rodada.
 const RODADA_MS = 3 * 60_000;
 
+// O link da DM leva o lead até aqui: em produção só https. http:// só para desenvolvimento
+// local (localhost e 127.0.0.1, com ou sem porta).
+const siteUrlValida = (u: string) =>
+  /^(https:\/\/[^\s/]|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?([/?#]|$))[^\s]*$/i.test(u);
+
 const json = (corpo: unknown, status = 200) =>
   new Response(JSON.stringify(corpo), { status, headers: { "Content-Type": "application/json" } });
 const texto = (corpo: string, status: number) =>
@@ -52,8 +57,8 @@ export function criarManipulador(dep: Dependencias) {
     // daqui pra baixo o pedido é do agendador
     const chaveTokens = dep.env("GATILHO_CHAVE_TOKENS");
     const siteUrl = dep.env("GATILHO_SITE_URL")?.trim().replace(/\/+$/, "");
-    if (!chaveTokens || !siteUrl || !/^https?:\/\/[^\s]+$/i.test(siteUrl)) {
-      console.error("[gatilho-envia] falta GATILHO_CHAVE_TOKENS ou GATILHO_SITE_URL (com http:// ou https://)");
+    if (!chaveTokens || !siteUrl || !siteUrlValida(siteUrl)) {
+      console.error("[gatilho-envia] falta GATILHO_CHAVE_TOKENS ou GATILHO_SITE_URL (https://; http:// só em localhost)");
       return texto("indisponível", 503);
     }
 

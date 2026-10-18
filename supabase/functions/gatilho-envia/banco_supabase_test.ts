@@ -239,3 +239,54 @@ Deno.test("erro do PostgREST vira exceção (a conta falha, as outras seguem)", 
   }
   assert(erro instanceof Error && erro.message === "comentarios: boom");
 });
+
+Deno.test("regras recusa valor fora do piso/teto seguro (0, negativo, gigante, fracionado) e aceita os extremos", async () => {
+  const normais = {
+    envio_max_por_rodada: 6,
+    envio_intervalo_segundos: 5,
+    envio_pausa_direct_min: 180,
+    envio_pausa_resposta_min: 45,
+    respostas_publicas_max_24h: 200,
+    fila_janela_dias: 6,
+    consulta_posts_recentes_dias: 7,
+    consulta_posts_por_rodada: 5,
+  };
+  const com = (mudanca: Record<string, number>) =>
+    Object.entries({ ...normais, ...mudanca }).map(([chave, valor]) => ({ chave, valor }));
+  const ler = async (mudanca: Record<string, number>) => {
+    const { banco } = comRespostas([{ corpo: com(mudanca) }]);
+    return await banco.regras();
+  };
+
+  const ruins: [string, number][] = [
+    ["envio_max_por_rodada", 0],
+    ["envio_max_por_rodada", -3],
+    ["envio_max_por_rodada", 31], // 31 x 20 rodadas/h passaria das 750/h da Meta
+    ["envio_max_por_rodada", 2.5],
+    ["envio_intervalo_segundos", 0],
+    ["envio_intervalo_segundos", 61],
+    ["envio_pausa_direct_min", 0],
+    ["envio_pausa_direct_min", 1_000_000],
+    ["envio_pausa_resposta_min", -1],
+    ["respostas_publicas_max_24h", -1],
+    ["respostas_publicas_max_24h", 1001],
+    ["fila_janela_dias", 0],
+    ["fila_janela_dias", 8], // a Meta só aceita resposta privada até 7 dias
+    ["consulta_posts_recentes_dias", 31],
+    ["consulta_posts_por_rodada", 0],
+    ["consulta_posts_por_rodada", 21],
+  ];
+  for (const [chave, valor] of ruins) {
+    let erro: unknown = null;
+    try {
+      await ler({ [chave]: valor });
+    } catch (e) {
+      erro = e;
+    }
+    assert(erro instanceof Error && erro.message.includes(chave), `${chave}=${valor} devia ser recusada`);
+  }
+
+  // os extremos válidos passam (0 respostas públicas = só DM)
+  const r = await ler({ envio_max_por_rodada: 30, respostas_publicas_max_24h: 0, fila_janela_dias: 7, envio_intervalo_segundos: 1 });
+  assertEquals([r.envioMaxPorRodada, r.respostasPublicasMax24h, r.filaJanelaDias, r.envioIntervaloSegundos], [30, 0, 7, 1]);
+});
