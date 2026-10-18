@@ -18,7 +18,7 @@ import { assinaturaValida } from "./mp-assinatura";
  */
 
 export type RegistroPagamento = {
-  gateway: "mercadopago";
+  gateway: "mercadopago" | "asaas";
   gatewayPagamentoId: string;
   userId: string;
   valorCentavos: number;
@@ -27,7 +27,7 @@ export type RegistroPagamento = {
 
 /** O que o banco respondeu (registrar_pagamento, migration 0005). */
 export type ResultadoRegistro = "liberado" | "repetido" | "valor_divergente" | "preapproval_divergente" | "sem_usuario";
-type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
+export type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
 
 export type ResultadoAviso =
   | { tratado: "liberado"; userId: string }

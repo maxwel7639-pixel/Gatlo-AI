@@ -1,3 +1,4 @@
+import { consultarAutorizacao, ouNaoExiste } from "./asaas";
 import { consultarAssinatura, criarAssinatura } from "./mercadopago";
 
 /**
@@ -39,6 +40,15 @@ export async function abrirCheckout(
   if (atual?.status === "ativa") return { erro: "A tua assinatura já está ativa." };
 
   let anteriorId: string | null = null;
+  if (atual?.gateway === "asaas" && atual.gatewayAssinaturaId) {
+    // Pix Automático vivo (QR esperando pagamento ou autorizado) não convive com um cartão novo.
+    const a = await ouNaoExiste(consultarAutorizacao(atual.gatewayAssinaturaId));
+    if (a?.status === "ACTIVE" || a?.status === "CREATED") {
+      return { erro: "Já existe uma assinatura no Pix Automático em andamento. Conclui ou cancela ela antes de assinar no cartão." };
+    }
+    // o id do Pix entra na chave de idempotência, como o do preapproval cancelado
+    anteriorId = atual.gatewayAssinaturaId;
+  }
   if (atual?.gateway === "mercadopago" && atual.gatewayAssinaturaId) {
     // Ativa ou não, o MP pode estar cobrando (cartão recusado que ele ainda tenta
     // de novo, 1º aviso que atrasou): quem sabe é ele, não o nosso banco.

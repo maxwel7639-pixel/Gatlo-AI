@@ -1,6 +1,5 @@
-import { usaSupabase } from "@/lib/env";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { receberAviso } from "@/lib/mp-webhook";
+import { registrarNoBanco } from "@/lib/registrar-pagamento";
 
 /**
  * Webhook do Mercado Pago (cartão / assinatura recorrente).
@@ -36,21 +35,8 @@ export async function POST(request: Request) {
 
   const r = await receberAviso(
     { tipo, id, assinatura: request.headers.get("x-signature"), requestId: request.headers.get("x-request-id") },
-    async (p) => {
-      if (!usaSupabase) return false;
-      const { data, error } = await createAdminClient().rpc("registrar_pagamento", {
-        p_gateway: p.gateway,
-        p_gateway_pagamento_id: p.gatewayPagamentoId,
-        p_user_id: p.userId,
-        p_valor_centavos: p.valorCentavos,
-        p_gateway_assinatura_id: p.gatewayAssinaturaId,
-      });
-      // Erro do banco NÃO pode virar "ignorado" (200): o MP não reenviaria e o
-      // pagamento confirmado ficaria sem crédito. Lança, e a resposta é 500.
-      if (error) throw new Error(`registrar_pagamento: ${error.message}`);
-      if (data === "liberado" || data === "repetido" || data === "valor_divergente" || data === "preapproval_divergente" || data === "sem_usuario") return data;
-      throw new Error(`registrar_pagamento devolveu algo inesperado: ${String(data)}`);
-    },
+    // erro do banco lança e vira 500 (lib/registrar-pagamento.ts): o MP reenvia
+    registrarNoBanco,
   );
   if (r.status === 500) console.error("[mercadopago-webhook]", r.status, r.corpo.erro);
   return Response.json(r.corpo, { status: r.status });

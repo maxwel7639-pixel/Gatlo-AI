@@ -14,6 +14,7 @@ import { lerFormulario, type Erros } from "./automacao-validar";
 import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
 import { abrirCheckoutDoServidor } from "./mp-checkout-servidor";
+import { abrirAutorizacaoDoServidor } from "./asaas-servidor";
 
 /**
  * As ações do painel. TODA ação começa com exigirUsuario(): o id do usuário
@@ -203,4 +204,33 @@ export async function assinarCartao(): Promise<EstadoAssinatura> {
   // O redirect joga a página fora: tem que ficar FORA do try/catch, senão o
   // Next engole o NEXT_REDIRECT como se fosse erro.
   redirect(url);
+}
+
+export type EstadoPix = { erro?: string; pix?: { payload: string; imagem: string } };
+
+/**
+ * Abre a autorização do Pix Automático (Asaas) e devolve o QR Code do 1º
+ * pagamento. O preço NÃO vem do navegador: o servidor lê `regras` (lib/asaas-servidor.ts).
+ * O que o formulário manda é só o CPF/CNPJ, conferido no miolo e repassado ao Asaas.
+ * O robô só é liberado depois que o webhook do Asaas confirma a cobrança na API
+ * (lib/asaas-webhook.ts): este botão não libera nada sozinho.
+ */
+export async function assinarPix(_anterior: EstadoPix, formulario: FormData): Promise<EstadoPix> {
+  const usuario = await exigirUsuario();
+  if (!usaSupabase) {
+    return { erro: "No modo demonstração não dá pra assinar: aqui não passa Pix de ninguém." };
+  }
+  if (!(await dentroDaTaxa(`assinar-pix:${usuario.id}`, 5, 3600))) {
+    return { erro: "Muitas tentativas de assinatura numa hora. Espera um pouco e tenta de novo." };
+  }
+  const bruto = formulario.get("cpfCnpj");
+  const documento = typeof bruto === "string" ? bruto.slice(0, 30) : "";
+
+  try {
+    const r = await abrirAutorizacaoDoServidor(usuario, documento);
+    return "erro" in r ? r : { pix: r };
+  } catch (e) {
+    console.error("[assinarPix]", e instanceof Error ? e.message : e);
+    return { erro: "Não deu pra abrir o Pix Automático agora. Tenta de novo em instantes." };
+  }
 }
