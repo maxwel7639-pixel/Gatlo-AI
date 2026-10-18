@@ -106,6 +106,16 @@ Já está no banco: `regras.preco_mensal_centavos = 9790`, `teste_dias = 7`, `ca
 4. **Cancelar**: função nova `marcar_assinatura(user, status)` (SECURITY DEFINER, revogada do anon/authenticated) chamada pelos webhooks de cancelamento; botão "cancelar" no painel cancela no gateway (o status só muda quando o gateway confirma).
 5. Botões em `/painel/conta` (hoje com o aviso "chega na próxima etapa").
 
+### Decisões do C1 (cartão), 18/10/2026
+
+- **Preço travado por assinatura.** O preapproval do MP cobra todo mês o valor fixado na hora da assinatura. Quando o checkout nasce, `guardar_preapproval` grava o id e o preço da época em `assinaturas`; `registrar_pagamento` (migration 0005) aceita pagamento >= o MENOR entre `regras.preco_mensal_centavos` e esse valor guardado (só se o preapproval do pagamento for o guardado). Reajuste de preço vale só para assinatura nova; quem já assinou segue pagando o valor da época, sem cair em `valor_divergente`. Sem valor guardado, vale o preço atual. Um link de checkout ainda pendente também guarda o preço do dia em que nasceu.
+- **Alerta, não silêncio.** `registrar_pagamento` devolve texto (`liberado`, `repetido`, `valor_divergente`, `sem_usuario`). Os dois últimos são dinheiro cobrado sem liberar nada e o MP não reenvia (a rota responde 200): saem em `console.error` com `ALERTA valor_divergente` ou `ALERTA cobranca_orfa`, no log da Vercel. **Pendência de produção:** ligar um aviso de verdade (e-mail ou WhatsApp para o Maxwel) a esses dois alertas, ou olhar o log todo dia até lá.
+- **Conta excluída com cobrança viva.** Excluir a conta ainda NÃO cancela o preapproval no MP (cancelar é o C3). O webhook já não entra em 500 eterno: o pagamento é guardado sem dono (`pagamentos.user_id` nulo), o alerta `cobranca_orfa` sai uma vez e a rota responde 200. **Bloqueia produção real:** o C3 tem que cancelar o preapproval no MP antes de `deleteUser`.
+- **Nunca dois preapprovals vivos.** Antes de abrir outro checkout, `lib/mp-checkout.ts` consulta o MP: autorizado ou pausado recusa; pendente devolve o mesmo link; cancelado deixa criar outro (a chave de idempotência inclui o id anterior). Sem conseguir consultar o MP, não cria (falha fechada).
+- **Estorno e chargeback (C3).** O C1 só confere `currency_id = BRL` e `transaction_amount_refunded = 0` antes de creditar. Revogar o período de quem pediu estorno ou chargeback depois de pago (a tabela já tem o status `estornado`) é do C3, junto com `marcar_assinatura`.
+- **Cancelar (C3).** A tela diz onde cancelar ("direto no Mercado Pago, em Assinaturas"). O webhook ainda ignora o aviso de `preapproval` cancelado: o banco segue `ativa` até o período e a carência acabarem. Botão e tratamento do cancelamento: C3.
+- **Endereço da API.** O preapproval é criado em `POST /preapproval` (como no Fisga em produção); o rascunho usava `/v1/payments/preapproval`, que não existe no MP.
+
 ---
 
 ## Fase D · publicar

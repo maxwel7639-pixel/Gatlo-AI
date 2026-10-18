@@ -14,7 +14,7 @@ import { lerFormulario, type Erros } from "./automacao-validar";
 import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
 import { regras } from "./regras";
-import { criarAssinatura } from "./mercadopago";
+import { abrirCheckout } from "./mp-checkout";
 
 /**
  * As ações do painel. TODA ação começa com exigirUsuario(): o id do usuário
@@ -193,13 +193,33 @@ export async function assinarCartao(): Promise<EstadoAssinatura> {
 
   let url: string;
   try {
-    // Já ativa: um 2º checkout viraria cobrança dobrada. A tela esconde o botão,
-    // mas a ação confere de novo (o navegador pode mandar qualquer coisa).
-    if ((await repo().situacao(usuario.id))?.status === "ativa") {
-      return { erro: "A tua assinatura já está ativa." };
-    }
-    const r = await regras();
-    url = await criarAssinatura({ userId: usuario.id, email: usuario.email, precoCentavos: r.precoMensalCentavos });
+    const admin = createAdminClient();
+    // O miolo (lib/mp-checkout.ts) recusa 2º checkout e decide o preço pelo que
+    // `lerPreco` devolve: aqui só liga ele às regras e ao banco de verdade.
+    const r = await abrirCheckout(usuario, {
+      lerPreco: async () => (await regras()).precoMensalCentavos,
+      assinaturaAtual: async () => {
+        const { data, error } = await admin
+          .from("assinaturas")
+          .select("status, gateway, gateway_assinatura_id")
+          .eq("user_id", usuario.id)
+          .maybeSingle();
+        if (error) throw new Error(`assinaturas: ${error.message}`);
+        return data
+          ? { status: data.status, gateway: data.gateway, gatewayAssinaturaId: data.gateway_assinatura_id }
+          : null;
+      },
+      guardar: async (id, valorCentavos) => {
+        const { data, error } = await admin.rpc("guardar_preapproval", {
+          p_user_id: usuario.id,
+          p_gateway_assinatura_id: id,
+          p_valor_centavos: valorCentavos,
+        });
+        if (error || data !== true) throw new Error(`guardar_preapproval: ${error?.message ?? "não gravou"}`);
+      },
+    });
+    if ("erro" in r) return r;
+    url = r.url;
   } catch (e) {
     console.error("[assinarCartao]", e instanceof Error ? e.message : e);
     return { erro: "Não deu pra abrir a assinatura agora. Tenta de novo em instantes." };

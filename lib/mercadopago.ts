@@ -63,21 +63,30 @@ export type PagamentoMP = {
   transaction_amount: number | null;
   external_reference: string | null;
   preapproval_id: string | null;
+  currency_id?: string | null;
+  transaction_amount_refunded?: number | null;
 };
 
+/** A assinatura (preapproval) como o MP devolve: pending, authorized, paused ou cancelled. */
+export type AssinaturaMP = { id: string; status: string; init_point: string | null };
+
 /**
- * Cria a assinatura recorrente e devolve o endereço do checkout do MP.
+ * Cria a assinatura recorrente e devolve o id dela e o endereço do checkout do MP.
  * `precoCentavos` é quem chama que manda (regras.preco_mensal_centavos).
+ * `anteriorId`: o preapproval que este substitui (cancelado no MP). Entra na chave
+ * de idempotência, senão o MP devolveria o preapproval velho dentro da janela dele.
  */
 export async function criarAssinatura(o: {
   userId: string;
   email: string;
   precoCentavos: number;
-}): Promise<string> {
-  const r = await mp<{ init_point: string | null; sandbox_init_point: string | null }>("/v1/payments/preapproval", {
+  anteriorId?: string | null;
+}): Promise<{ id: string; url: string }> {
+  // POST /preapproval (o mesmo caminho do Fisga em produção)
+  const r = await mp<{ id: string | null; init_point: string | null; sandbox_init_point: string | null }>("/preapproval", {
     method: "POST",
     // mesma requisição, mesmo resultado: o duplo clique não cria duas assinaturas
-    idempotencia: `assinatura-${o.userId}`,
+    idempotencia: `assinatura-${o.userId}-${o.anteriorId ?? "primeira"}`,
     body: JSON.stringify({
       reason: `${PRODUTO.nome} — assinatura mensal`,
       external_reference: `assinatura|${o.userId}`,
@@ -96,8 +105,12 @@ export async function criarAssinatura(o: {
   });
 
   const url = r.init_point ?? r.sandbox_init_point;
-  if (!url) throw new Error("Mercado Pago não devolveu o endereço do checkout.");
-  return url;
+  if (!url || !r.id) throw new Error("Mercado Pago não devolveu o id e o endereço do checkout.");
+  return { id: String(r.id), url };
+}
+
+export async function consultarAssinatura(id: string): Promise<AssinaturaMP> {
+  return await mp<AssinaturaMP>(`/preapproval/${encodeURIComponent(id)}`);
 }
 
 export async function consultarPagamento(id: string): Promise<PagamentoMP> {

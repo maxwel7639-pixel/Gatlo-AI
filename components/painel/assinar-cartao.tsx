@@ -9,18 +9,22 @@ const inicial: EstadoAssinatura = {};
 /**
  * O botão de assinar no cartão. O clique manda pro SERVIDOR (a ação lê o preço
  * em `regras` e abre o checkout do Mercado Pago); aqui só mostramos o erro, se
- * houver. Assinatura já ativa: não fica pedindo de novo.
+ * houver. Assinatura já ativa: não fica pedindo de novo. No modo demonstração
+ * (sem Supabase) o clique nunca poderia dar certo, então o botão nem aparece.
  */
-export function AssinarCartao({ preco, ativa }: { preco: string; ativa: boolean }) {
+export function AssinarCartao({ preco, ativa, demonstracao }: { preco: string; ativa: boolean; demonstracao: boolean }) {
   const [estado, acao, enviando] = useActionState(assinarCartao, inicial);
 
   if (ativa) return null;
+  if (demonstracao) {
+    return <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">Assinatura só no app de verdade.</p>;
+  }
 
   return (
     <form action={acao} className="mt-5 rounded-xl bg-superficie-2 px-4 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-suave">
-          Assinatura de <strong>{preco}</strong> por mês, no cartão, pelo Mercado Pago. Cancela quando quiser.
+          Assinatura de <strong>{preco}</strong> por mês, no cartão, pelo Mercado Pago. Cancela direto no Mercado Pago, em Assinaturas.
         </p>
         <button type="submit" disabled={enviando} className={classeBotao("primario", "sm")}>
           {enviando ? "Abrindo o checkout…" : "Assinar com cartão"}

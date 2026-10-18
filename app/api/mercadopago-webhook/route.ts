@@ -14,7 +14,8 @@ import { receberAviso } from "@/lib/mp-webhook";
  *
  * Respostas: 401 aviso com assinatura errada, ausente ou sem segredo
  * configurado; 500 falhou ao consultar o MP ou ao gravar (ele reenvia); 200
- * liberado ou ignorado (nada a reenviar).
+ * liberado ou ignorado (nada a reenviar; valor divergente e cobrança de conta
+ * excluída ignoram com ALERTA em nível de erro no log, porque o MP não reenvia).
  */
 export async function GET() {
   return NextResponse.json({ ok: true });
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
       // Erro do banco NÃO pode virar "ignorado" (200): o MP não reenviaria e o
       // pagamento confirmado ficaria sem crédito. Lança, e a resposta é 500.
       if (error) throw new Error(`registrar_pagamento: ${error.message}`);
-      return data === true;
+      if (data === "liberado" || data === "repetido" || data === "valor_divergente" || data === "sem_usuario") return data;
+      throw new Error(`registrar_pagamento devolveu algo inesperado: ${String(data)}`);
     },
   );
   if (r.status !== 200) console.error("[mercadopago-webhook]", r.status, r.corpo.erro);

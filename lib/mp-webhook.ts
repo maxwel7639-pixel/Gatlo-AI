@@ -25,6 +25,10 @@ export type RegistroPagamento = {
   gatewayAssinaturaId: string | null;
 };
 
+/** O que o banco respondeu (registrar_pagamento, migration 0005). */
+export type ResultadoRegistro = "liberado" | "repetido" | "valor_divergente" | "sem_usuario";
+type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
+
 export type ResultadoAviso =
   | { tratado: "liberado"; userId: string }
   | { tratado: "ignorado"; motivo: string }
@@ -32,7 +36,7 @@ export type ResultadoAviso =
 
 export async function processarAviso(
   aviso: { tipo: string | null; id: string | null },
-  registrar: (r: RegistroPagamento) => Promise<boolean>,
+  registrar: Registrar,
 ): Promise<ResultadoAviso> {
   const tipo = aviso.tipo ?? "";
   const id = aviso.id;
@@ -51,6 +55,10 @@ export async function processarAviso(
       // A cobrança de dentro da assinatura (a 1ª e as mensais), com o id dela.
       const p = await consultarPagamento(id);
       if (p.status !== "approved") return { tratado: "ignorado", motivo: `pagamento ${p.status}` };
+      // Aprovado não basta: tem que ser em reais e sem devolução. (Estorno depois
+      // do crédito e chargeback são do C3: revogar o período.)
+      if (p.currency_id !== "BRL") return { tratado: "ignorado", motivo: `moeda ${p.currency_id ?? "(vazia)"}` };
+      if ((p.transaction_amount_refunded ?? 0) > 0) return { tratado: "ignorado", motivo: "pagamento com devolução" };
       return await creditar(p.external_reference, p.transaction_amount, String(p.id), p.preapproval_id, registrar);
     }
 
@@ -70,7 +78,7 @@ export async function processarAviso(
  */
 export async function receberAviso(
   aviso: { tipo: string | null; id: string | null; assinatura: string | null; requestId: string | null },
-  registrar: (r: RegistroPagamento) => Promise<boolean>,
+  registrar: Registrar,
 ): Promise<{ status: 200 | 401 | 500; corpo: Record<string, string> }> {
   const conf = await assinaturaValida(aviso.assinatura, aviso.requestId, aviso.id);
   if (!conf.valida) return { status: 401, corpo: { erro: conf.motivo ?? "assinatura inválida" } };
@@ -85,14 +93,14 @@ async function creditar(
   valorReais: number | null,
   gatewayPagamentoId: string,
   gatewayAssinaturaId: string | null,
-  registrar: (r: RegistroPagamento) => Promise<boolean>,
+  registrar: Registrar,
 ): Promise<ResultadoAviso> {
   // O dono vem da referência que a API devolveu, não do corpo do aviso.
   const ref = lerReferencia(referencia);
   if (!ref) return { tratado: "ignorado", motivo: "sem referência de assinatura" };
   if (valorReais == null) return { tratado: "ignorado", motivo: "sem valor" };
 
-  const liberou = await registrar({
+  const resultado = await registrar({
     gateway: "mercadopago",
     gatewayPagamentoId,
     userId: ref.userId,
@@ -100,9 +108,19 @@ async function creditar(
     gatewayAssinaturaId,
   });
 
-  // false: ou já tinha esse id registrado (aviso repetido) ou o valor não bateu
-  // com o preço de `regras` — nos dois casos, nada mudou no banco.
-  return liberou
-    ? { tratado: "liberado", userId: ref.userId }
-    : { tratado: "ignorado", motivo: "valor diferente do preço ou aviso repetido" };
+  if (resultado === "liberado") return { tratado: "liberado", userId: ref.userId };
+
+  // Os dois casos abaixo são DINHEIRO QUE O MP COBROU E NÃO LIBEROU NADA: o MP não
+  // reenvia (a rota responde 200), então o aviso tem que sair daqui, em nível de
+  // erro, para o Maxwel ver no log da Vercel e resolver (ajustar o valor ou estornar).
+  if (resultado === "valor_divergente") {
+    console.error(
+      `[mercadopago-webhook] ALERTA valor_divergente: pagamento ${gatewayPagamentoId} do usuário ${ref.userId} pagou ${valorReais} e não liberou. Conferir regras.preco_mensal_centavos e o preapproval ${gatewayAssinaturaId}.`,
+    );
+  } else if (resultado === "sem_usuario") {
+    console.error(
+      `[mercadopago-webhook] ALERTA cobranca_orfa: pagamento ${gatewayPagamentoId} de ${valorReais} para um usuário que não existe mais (${ref.userId}). Cancelar o preapproval ${gatewayAssinaturaId} e estornar.`,
+    );
+  }
+  return { tratado: "ignorado", motivo: resultado === "repetido" ? "aviso repetido" : resultado };
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { basePainel } from "@/lib/painel";
 import { PRODUTO } from "@/lib/config";
+import { usaSupabase } from "@/lib/env";
 import { desconectarInstagram } from "@/lib/acoes";
 import { emReais, regras } from "@/lib/regras";
 import { dataCurta, numero } from "@/lib/formato";
@@ -135,12 +136,14 @@ export default async function Conta({
             ) : (
               <p className="text-sm text-suave">Não achei a tua assinatura. Fala com o suporte.</p>
             )}
-            <AssinarCartao preco={emReais(r.precoMensalCentavos)} ativa={situacao?.status === "ativa"} />
-            {q.assinatura === "iniciada" ? (
-              <Aviso tipo="ok">
-                Valeu! O pagamento é confirmado pelo Mercado Pago e a assinatura ativa sozinha em instantes. Se não
-                voltou pro painel na hora, recarrega a página.
-              </Aviso>
+            <AssinarCartao preco={emReais(r.precoMensalCentavos)} ativa={situacao?.status === "ativa"} demonstracao={!usaSupabase} />
+            {q.assinatura === "iniciada" && situacao?.status !== "ativa" ? (
+              <div className="mt-3">
+                <Aviso tipo="info">
+                  Se tu concluiu o pagamento no Mercado Pago, a assinatura ativa sozinha em alguns minutos. Recarrega
+                  esta página pra conferir.
+                </Aviso>
+              </div>
             ) : null}
           </Cartao>
         </section>

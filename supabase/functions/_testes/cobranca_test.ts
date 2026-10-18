@@ -1,7 +1,13 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import type { PGlite } from "@electric-sql/pglite";
 import { criarPostgres, criarUsuario } from "./pg.ts";
-import { processarAviso, receberAviso, type RegistroPagamento } from "../../../lib/mp-webhook.ts";
+import {
+  processarAviso,
+  receberAviso,
+  type RegistroPagamento,
+  type ResultadoRegistro,
+} from "../../../lib/mp-webhook.ts";
+import { abrirCheckout, type DepsCheckout } from "../../../lib/mp-checkout.ts";
 import { assinaturaValida } from "../../../lib/mp-assinatura.ts";
 import { criarAssinatura, lerReferencia } from "../../../lib/mercadopago.ts";
 
@@ -36,17 +42,17 @@ async function assinar(dataId: string, requestId: string, ts = "1700000000", seg
   return `ts=${ts},v1=${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
-type Registrar = (r: RegistroPagamento) => Promise<boolean>;
+type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
 
 /** O banco por trás da dependência `registrar`: o mesmo RPC que a rota usa. */
 async function registrarSobrePg(db: PGlite): Promise<Registrar> {
   return async (r) => {
-    const x = await db.query<{ registrar_pagamento: boolean }>(
+    const x = await db.query<{ registrar_pagamento: ResultadoRegistro }>(
       `select public.registrar_pagamento($1::text, $2::text, $3::uuid, $4::int, $5::text)
          as registrar_pagamento`,
       [r.gateway, r.gatewayPagamentoId, r.userId, r.valorCentavos, r.gatewayAssinaturaId],
     );
-    return x.rows[0].registrar_pagamento === true;
+    return x.rows[0].registrar_pagamento;
   };
 }
 
@@ -108,17 +114,17 @@ Deno.test("cobrança: o preço vem de regras (banco) e não existe escrito no c�
 
   const userId = await criarUsuario(db);
   await comMP(
-    () => Response.json({ init_point: "https://mp.example/checkout/abc", sandbox_init_point: null }),
+    () => Response.json({ id: "pa-novo", init_point: "https://mp.example/checkout/abc", sandbox_init_point: null }),
     async (pedidos) => {
-      const url = await criarAssinatura({ userId, email: "cliente@exemplo.invalid", precoCentavos: preco });
-      assertEquals(url, "https://mp.example/checkout/abc", "o cliente vai pro checkout do MP");
+      const r = await criarAssinatura({ userId, email: "cliente@exemplo.invalid", precoCentavos: preco });
+      assertEquals(r, { id: "pa-novo", url: "https://mp.example/checkout/abc" }, "o cliente vai pro checkout do MP");
 
       const [p] = pedidos;
       const u = new URL(p.url);
-      assertEquals(`${u.origin}${u.pathname}`, "https://api.mercadopago.com/v1/payments/preapproval");
+      assertEquals(`${u.origin}${u.pathname}`, "https://api.mercadopago.com/preapproval");
       assertEquals(p.method, "POST");
       assertEquals(p.headers.get("authorization"), "Bearer APP_USR-teste-falso");
-      assertEquals(p.headers.get("x-idempotency-key"), `assinatura-${userId}`, "o duplo clique manda a mesma chave");
+      assertEquals(p.headers.get("x-idempotency-key"), `assinatura-${userId}-primeira`, "o duplo clique manda a mesma chave");
 
       const corpo = (await p.json()) as Record<string, unknown>;
       const recorrente = corpo.auto_recurring as Record<string, unknown>;
@@ -166,6 +172,8 @@ Deno.test("cobrança: o corpo diz aprovado, a API diz pending — não libera", 
         transaction_amount: 97.9,
         external_reference: `assinatura|${userId}`,
         preapproval_id: null,
+        currency_id: "BRL",
+        transaction_amount_refunded: 0,
       }),
     async () => {
       const r = await processarAviso({ tipo: "payment", id: "42" }, registrar);
@@ -190,6 +198,8 @@ Deno.test("cobrança: pagamento aprovado libera o robô e empurra o período em 
         transaction_amount: 97.9,
         external_reference: `assinatura|${userId}`,
         preapproval_id: "pa-1",
+        currency_id: "BRL",
+        transaction_amount_refunded: 0,
       }),
     async () => {
       const r = await processarAviso({ tipo: "payment", id: "1001" }, registrar);
@@ -225,6 +235,8 @@ Deno.test("cobrança: o mesmo aviso duas vezes não credita dobrado", async () =
         transaction_amount: 97.9,
         external_reference: `assinatura|${userId}`,
         preapproval_id: "pa-1",
+        currency_id: "BRL",
+        transaction_amount_refunded: 0,
       }),
     async () => {
       const primeiro = await processarAviso({ tipo: "payment", id: "1001" }, registrar);
@@ -256,6 +268,8 @@ Deno.test("cobrança: valor abaixo do preço não libera (fica registrado como d
         transaction_amount: 90,
         external_reference: `assinatura|${userId}`,
         preapproval_id: "pa-1",
+        currency_id: "BRL",
+        transaction_amount_refunded: 0,
       }),
     async () => {
       const r = await processarAviso({ tipo: "payment", id: "777" }, registrar);
@@ -272,13 +286,22 @@ Deno.test("cobrança: valor abaixo do preço não libera (fica registrado como d
   );
 });
 
-const respostaDoPagamento = (userId: string, valor = 97.9, status = "approved") => (p: Request) =>
+const respostaDoPagamento = (
+  userId: string,
+  valor = 97.9,
+  status = "approved",
+  extra: Record<string, unknown> = {},
+) =>
+(p: Request) =>
   Response.json({
     id: idDoCaminho(p),
     status,
     transaction_amount: valor,
     external_reference: `assinatura|${userId}`,
     preapproval_id: "pa-1",
+    currency_id: "BRL",
+    transaction_amount_refunded: 0,
+    ...extra,
   });
 
 Deno.test("cobrança: assinatura autorizada sozinha não libera; autorizada + 1º pagamento = 1 mês, não 2", async () => {
@@ -402,10 +425,10 @@ Deno.test("cobrança: falha ao gravar vira 500 (o MP reenvia), não 'ignorado'",
   });
 });
 
-Deno.test("cobrança: o preço cobrado sai de regras no servidor; o formulário do cliente não entra", async () => {
+Deno.test("cobrança: a ação liga o checkout às regras do servidor e não lê o formulário (a ligação; a prova funcional é o teste do checkout)", async () => {
   const acao = await Deno.readTextFile(new URL("../../../lib/acoes.ts", import.meta.url));
   const corpo = acao.slice(acao.indexOf("export async function assinarCartao"));
-  assert(corpo.includes("precoCentavos: r.precoMensalCentavos"), "o preço vem de regras()");
+  assert(corpo.includes("lerPreco: async () => (await regras()).precoMensalCentavos"), "o preço vem de regras()");
   assert(corpo.includes("assinarCartao()"), "a ação nem recebe o formulário");
   assert(!/formData|\.get\(|\b9790\b|\b97[.,]9\b/.test(corpo), "a ação não lê o formulário nem tem preço escrito");
 });
@@ -421,6 +444,7 @@ Deno.test("cobrança: o cliente logado não chama registrar_pagamento nem escrev
       `update public.assinaturas set status = 'ativa', periodo_ate = now() + interval '1 year' where user_id = '${userId}'`,
       `insert into public.pagamentos (gateway, gateway_pagamento_id, user_id, status, valor_centavos)
          values ('mercadopago', 'x2', '${userId}', 'aprovado', 9790)`,
+      `select public.guardar_preapproval('${userId}'::uuid, 'pa-x', 1)`,
     ]) {
       try {
         await db.query(sql);
@@ -431,7 +455,7 @@ Deno.test("cobrança: o cliente logado não chama registrar_pagamento nem escrev
   } finally {
     await db.exec(`reset role`);
   }
-  assertEquals(negou, 3, "as 3 tentativas têm que ser negadas pelo banco");
+  assertEquals(negou, 4, "as 4 tentativas têm que ser negadas pelo banco");
   assertEquals((await assinaturaDe(db, userId)).status, "trial");
   assertEquals(await pagamentosDe(db, userId), []);
 });
@@ -454,4 +478,248 @@ Deno.test("cobrança: a referência só aceita assinatura com uuid de verdade", 
   assertEquals(lerReferencia("isca|123"), null, "outro tipo de referência não libera assinatura");
   assertEquals(lerReferencia(null), null);
   assertEquals(lerReferencia(""), null);
+});
+
+
+/* ------------------------------------------------------------------ */
+/* Os achados dos conferentes do C1                                    */
+/* ------------------------------------------------------------------ */
+
+/** Pega o que o código manda para console.error (o alerta que o Maxwel vê no log da Vercel). */
+async function capturandoErros<T>(f: () => Promise<T>): Promise<{ resultado: T; erros: string[] }> {
+  const original = console.error;
+  const erros: string[] = [];
+  console.error = (...a: unknown[]) => void erros.push(a.join(" "));
+  try {
+    return { resultado: await f(), erros };
+  } finally {
+    console.error = original;
+  }
+}
+
+const mudarPreco = (db: PGlite, centavos: number) =>
+  db.exec(`update public.regras set valor = ${centavos} where chave = 'preco_mensal_centavos'`);
+
+/** O miolo do checkout ligado ao banco de verdade (PGlite), como a ação liga ao Supabase. */
+function depsSobrePg(db: PGlite, userId: string): DepsCheckout {
+  return {
+    lerPreco: async () =>
+      Number((await db.query<{ v: string }>(`select public.regra('preco_mensal_centavos') as v`)).rows[0].v),
+    assinaturaAtual: async () => {
+      const r = (await db.query<{ status: string; gateway: string | null; gateway_assinatura_id: string | null }>(
+        `select status, gateway, gateway_assinatura_id from public.assinaturas where user_id = $1`,
+        [userId],
+      )).rows[0];
+      return r ? { status: r.status, gateway: r.gateway, gatewayAssinaturaId: r.gateway_assinatura_id } : null;
+    },
+    guardar: async (id, valor) => {
+      const r = await db.query<{ ok: boolean }>(
+        `select public.guardar_preapproval($1::uuid, $2::text, $3::int) as ok`,
+        [userId, id, valor],
+      );
+      if (r.rows[0].ok !== true) throw new Error("não gravou");
+    },
+  };
+}
+
+/** MP simulado do checkout: POST /preapproval cria pa-1, pa-2...; GET /preapproval/<id> responde o estado do roteiro. */
+function mpDoCheckout(estados: Record<string, string>, prefixo = "pa") {
+  let criados = 0;
+  return (p: Request) => {
+    if (p.method === "POST") {
+      const id = `${prefixo}-${++criados}`;
+      estados[id] = "pending";
+      return Response.json({ id, init_point: `https://mp.example/checkout/${id}`, sandbox_init_point: null });
+    }
+    const id = idDoCaminho(p);
+    return id in estados
+      ? Response.json({ id, status: estados[id], init_point: `https://mp.example/checkout/${id}` })
+      : Response.json({ message: "not found" }, { status: 404 });
+  };
+}
+
+const criacoes = (pedidos: Request[]) => pedidos.filter((p) => p.method === "POST");
+
+Deno.test("checkout: o preço enviado ao MP é o de regras no servidor (muda quando regras muda) e o id e o preço da época ficam guardados", async () => {
+  const db = await criarPostgres();
+  const u1 = await criarUsuario(db);
+  const u2 = await criarUsuario(db);
+
+  await comMP(mpDoCheckout({}), async (pedidos) => {
+    // abrirCheckout não tem onde receber preço: o único caminho é lerPreco (regras)
+    assertEquals(await abrirCheckout({ id: u1, email: "a@exemplo.invalid" }, depsSobrePg(db, u1)), {
+      url: "https://mp.example/checkout/pa-1",
+    });
+    const corpo1 = (await criacoes(pedidos)[0].json()) as { auto_recurring: { transaction_amount: number } };
+    assertEquals(corpo1.auto_recurring.transaction_amount, 97.9);
+
+    const a = await assinaturaDe(db, u1);
+    assertEquals([a.status, a.gateway, a.gateway_assinatura_id, a.valor_centavos], ["trial", "mercadopago", "pa-1", 9790]);
+
+    await mudarPreco(db, 12000);
+    await abrirCheckout({ id: u2, email: "b@exemplo.invalid" }, depsSobrePg(db, u2));
+    const corpo2 = (await criacoes(pedidos)[1].json()) as { auto_recurring: { transaction_amount: number } };
+    assertEquals(corpo2.auto_recurring.transaction_amount, 120, "preço novo de regras, vindo do servidor");
+    assertEquals((await assinaturaDe(db, u2)).valor_centavos, 12000);
+  });
+});
+
+Deno.test("checkout: 2º clique com checkout pendente devolve o MESMO checkout, sem criar outro preapproval", async () => {
+  const db = await criarPostgres();
+  const u = await criarUsuario(db);
+  const deps = depsSobrePg(db, u);
+
+  await comMP(mpDoCheckout({}), async (pedidos) => {
+    const um = await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, deps);
+    const dois = await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, deps);
+    assertEquals(dois, um, "o mesmo link");
+    assertEquals(criacoes(pedidos).length, 1, "um preapproval só");
+  });
+});
+
+Deno.test("checkout: preapproval já autorizado ou pausado no MP recusa novo checkout, mesmo com a assinatura 'vencida' ou 'trial' no banco", async () => {
+  for (const estado of ["authorized", "paused"]) {
+    for (const statusNoBanco of ["trial", "vencida"]) {
+      const db = await criarPostgres();
+      const u = await criarUsuario(db);
+      const estados: Record<string, string> = {};
+      await comMP(mpDoCheckout(estados), async (pedidos) => {
+        await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, depsSobrePg(db, u));
+        // cartão recusado e o MP tentando de novo (vencida), ou o 1º aviso que atrasou (trial)
+        estados["pa-1"] = estado;
+        await db.query(`update public.assinaturas set status = $2 where user_id = $1`, [u, statusNoBanco]);
+
+        const r = await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, depsSobrePg(db, u));
+        assert("erro" in r, `${estado}/${statusNoBanco}: tem que recusar`);
+        assertEquals(criacoes(pedidos).length, 1, "nenhum 2º preapproval");
+      });
+    }
+  }
+});
+
+Deno.test("checkout: preapproval cancelado no MP permite criar outro (chave de idempotência nova); assinatura ativa e MP fora do ar recusam", async () => {
+  const db = await criarPostgres();
+  const u = await criarUsuario(db);
+  const estados: Record<string, string> = {};
+
+  await comMP(mpDoCheckout(estados), async (pedidos) => {
+    await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, depsSobrePg(db, u));
+    estados["pa-1"] = "cancelled";
+    const r = await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, depsSobrePg(db, u));
+    assertEquals(r, { url: "https://mp.example/checkout/pa-2" });
+    assertEquals(criacoes(pedidos)[1].headers.get("x-idempotency-key"), `assinatura-${u}-pa-1`);
+    assertEquals((await assinaturaDe(db, u)).gateway_assinatura_id, "pa-2", "o id novo fica guardado");
+  });
+
+  // assinatura ativa: nem pergunta ao MP
+  await db.query(`update public.assinaturas set status = 'ativa' where user_id = $1`, [u]);
+  await comMP(mpDoCheckout(estados), async (pedidos) => {
+    const r = await abrirCheckout({ id: u, email: "a@exemplo.invalid" }, depsSobrePg(db, u));
+    assertEquals(r, { erro: "A tua assinatura já está ativa." });
+    assertEquals(pedidos.length, 0);
+  });
+
+  // sem saber o estado no MP, não cria outro (falha fechada)
+  await db.query(`update public.assinaturas set status = 'vencida' where user_id = $1`, [u]);
+  await comMP(() => Response.json({ message: "fora" }, { status: 503 }), async (pedidos) => {
+    await assertRejects(() => abrirCheckout({ id: u, email: "a@exemplo.invalid" }, depsSobrePg(db, u)));
+    assertEquals(criacoes(pedidos).length, 0);
+  });
+});
+
+Deno.test("preço travado por assinatura: reajuste em regras não prende quem já assinou; assinatura nova paga o preço novo", async () => {
+  const db = await criarPostgres();
+  const antigo = await criarUsuario(db);
+  const novo = await criarUsuario(db);
+  const registrar = await registrarSobrePg(db);
+
+  await comMP(mpDoCheckout({}), async () => {
+    await abrirCheckout({ id: antigo, email: "a@exemplo.invalid" }, depsSobrePg(db, antigo)); // pa-1 a 97,90
+  });
+  await mudarPreco(db, 12000); // o preço sobe depois da assinatura criada
+
+  await comMP(respostaDoPagamento(antigo), async () => {
+    const um = await processarAviso({ tipo: "payment", id: "7001" }, registrar);
+    assertEquals(um, { tratado: "liberado", userId: antigo }, "o 1º débito é o preço da época");
+    const dois = await processarAviso({ tipo: "payment", id: "7002" }, registrar);
+    assertEquals(dois, { tratado: "liberado", userId: antigo }, "o débito do mês seguinte também");
+    const a = await assinaturaDe(db, antigo);
+    assertEquals(a.status, "ativa");
+    const dias = (new Date(a.periodo_ate!).getTime() - Date.now()) / 86_400_000;
+    assert(dias > 55 && dias < 66, `dois meses pagos, deu ${dias.toFixed(1)} dias`);
+    assertEquals((await pagamentosDe(db, antigo)).map((x) => x.status), ["aprovado", "aprovado"]);
+  });
+
+  // o travado não vira desconto livre: abaixo do valor da época não libera
+  const ruim = await criarUsuario(db);
+  await mudarPreco(db, 9790);
+  await comMP(mpDoCheckout({}, "pb"), async () => {
+    await abrirCheckout({ id: ruim, email: "c@exemplo.invalid" }, depsSobrePg(db, ruim)); // travado em 97,90
+  });
+  await mudarPreco(db, 12000);
+  await comMP(respostaDoPagamento(ruim, 90), async () => {
+    const { resultado } = await capturandoErros(() => processarAviso({ tipo: "payment", id: "7003" }, registrar));
+    assertEquals(resultado.tratado, "ignorado");
+    assertEquals((await assinaturaDe(db, ruim)).status, "trial");
+  });
+
+  // quem não tem preço guardado paga o preço atual (120,00)
+  await comMP(respostaDoPagamento(novo, 97.9), async () => {
+    const { resultado } = await capturandoErros(() => processarAviso({ tipo: "payment", id: "7004" }, registrar));
+    assertEquals(resultado.tratado, "ignorado");
+    assertEquals((await pagamentosDe(db, novo))[0].status, "valor_divergente");
+  });
+});
+
+Deno.test("valor divergente e cobrança de conta excluída soltam ALERTA (console.error) uma vez; o aviso repetido não", async () => {
+  const db = await criarPostgres();
+  const userId = await criarUsuario(db);
+  const registrar = await registrarSobrePg(db);
+
+  // 90,00 contra 97,90: o MP cobrou e nada liberou
+  await comMP(respostaDoPagamento(userId, 90), async () => {
+    const { resultado, erros } = await capturandoErros(() => processarAviso({ tipo: "payment", id: "8001" }, registrar));
+    assertEquals(resultado, { tratado: "ignorado", motivo: "valor_divergente" });
+    assertEquals(erros.length, 1);
+    assert(erros[0].includes("ALERTA valor_divergente") && erros[0].includes("8001"), erros[0]);
+  });
+
+  // a conta foi excluída e o MP segue cobrando: não pode virar 500 eterno
+  const fantasma = "0b2f9a10-1234-4abc-9def-00000000dead";
+  const aviso = { tipo: "payment", id: "8002", assinatura: await assinar("8002", "req-8"), requestId: "req-8" };
+  await comMP(respostaDoPagamento(fantasma), async () => {
+    const um = await capturandoErros(() => receberAviso(aviso, registrar));
+    assertEquals(um.resultado, { status: 200, corpo: { tratado: "ignorado", motivo: "sem_usuario" } }, "200: o MP para de reenviar");
+    assertEquals(um.erros.length, 1);
+    assert(um.erros[0].includes("ALERTA cobranca_orfa") && um.erros[0].includes("8002"), um.erros[0]);
+
+    const dois = await capturandoErros(() => receberAviso(aviso, registrar));
+    assertEquals(dois.resultado.corpo.motivo, "aviso repetido");
+    assertEquals(dois.erros.length, 0, "o alerta sai uma vez só");
+  });
+  const orfaos = await db.query<{ n: number }>(
+    `select count(*)::int as n from public.pagamentos where user_id is null and gateway_pagamento_id = '8002'`,
+  );
+  assertEquals(orfaos.rows[0].n, 1, "o pagamento fica guardado sem dono, de prova para o estorno");
+});
+
+Deno.test("pagamento aprovado mas em outra moeda ou com devolução não libera", async () => {
+  const db = await criarPostgres();
+  const userId = await criarUsuario(db);
+  const registrar = await registrarSobrePg(db);
+
+  for (
+    const [nome, extra] of [
+      ["moeda", { currency_id: "USD" }],
+      ["sem moeda", { currency_id: null }],
+      ["devolvido", { transaction_amount_refunded: 97.9 }],
+      ["devolução parcial", { transaction_amount_refunded: 10 }],
+    ] as [string, Record<string, unknown>][]
+  ) {
+    await comMP(respostaDoPagamento(userId, 97.9, "approved", extra), async () => {
+      assertEquals((await processarAviso({ tipo: "payment", id: "9100" }, registrar)).tratado, "ignorado", nome);
+    });
+  }
+  assertEquals(await pagamentosDe(db, userId), []);
+  assertEquals((await assinaturaDe(db, userId)).status, "trial");
 });
