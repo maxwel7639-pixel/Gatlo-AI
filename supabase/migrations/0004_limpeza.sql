@@ -36,6 +36,15 @@ declare
   k int;
   t int;
 begin
+  -- Sem estes dois freios, um prazo 0 ou negativo apagaria a tabela inteira: a
+  -- limpeza vem de `regras`, e regra errada tem que doer alto, não varrer o banco.
+  if v_dias < 1 then
+    raise exception 'regras.limpeza_dias tem que ser pelo menos 1 dia (veio %); limpeza nao apagou nada', v_dias;
+  end if;
+  if v_horas < 1 then
+    raise exception 'regras.limpeza_taxa_horas tem que ser pelo menos 1 hora (veio %); limpeza nao apagou nada', v_horas;
+  end if;
+
   -- Comentários mais velhos que o prazo. Apagar a linha leva junto o vínculo dos
   -- cliques (cliques.comentario_id é "on delete set null"); o clique em si só cai
   -- pela própria data, logo abaixo — nenhum clique sobrevive escondido.

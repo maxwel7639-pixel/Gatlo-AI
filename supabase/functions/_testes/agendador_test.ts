@@ -97,7 +97,10 @@ Deno.test("agendador: cria os dois trabalhos, o do envio (3 min) e o da limpeza 
 
   // duas checagens que gritam: se faltar extensão e se faltar segredo no Vault
   // (sem os segredos, o trabalho mandaria chave nula e tomaria 401 calado para sempre)
-  assertEquals((sql.match(/raise exception/g) ?? []).length, 2, "faltam as checagens de extensão/segredo");
+  assert(
+    (sql.match(/raise exception/g) ?? []).length >= 2,
+    "faltam as checagens de extensão/segredo",
+  );
 });
 
 Deno.test("agendador: o endereço e a chave vêm do Vault, nunca escritos no arquivo", () => {

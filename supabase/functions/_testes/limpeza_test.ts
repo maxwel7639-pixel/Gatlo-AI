@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { criarAutomacao, criarConta, criarPostgres, criarUsuario } from "./pg.ts";
 
 // A limpeza do B3 (migration 0004): apaga SÓ o que passou do prazo.
@@ -141,4 +141,39 @@ Deno.test("limpeza: ninguém apaga pela API (anon, authenticated e service_role 
             has_function_privilege('service_role', 'public.limpar_dados_antigos()', 'execute')   as servidor`,
   );
   assertEquals(r.rows[0], { anon: false, logado: false, servidor: false });
+});
+
+Deno.test("limpeza: prazo 0 ou negativo recusa e não apaga nada (senão varreria o banco)", async () => {
+  const p = await preparar();
+  await comentarioEm(p, "velho", 91);
+  await cliqueEm(p, 91);
+  await janelaDeTaxa(p, "velha", 48);
+
+  const regra = (chave: string, valor: number) =>
+    p.db.query(`update public.regras set valor = $2 where chave = $1`, [chave, valor]);
+
+  // prazo dos comentários zerado: tem que recusar ANTES de apagar qualquer coisa
+  await regra("limpeza_dias", 0);
+  await assertRejects(() => limpar(p), Error, "limpeza_dias");
+  assertEquals(await contar(p, "from public.comentarios"), 1, "nada devia ter sido apagado");
+  assertEquals(await contar(p, "from public.cliques"), 1);
+  assertEquals(await contar(p, "from public.limite_taxa"), 1);
+
+  // prazo negativo também recusa
+  await regra("limpeza_dias", -5);
+  await assertRejects(() => limpar(p), Error, "limpeza_dias");
+  assertEquals(await contar(p, "from public.comentarios"), 1);
+
+  // prazo da taxa zerado, com o dos comentários de volta ao normal: também recusa e
+  // não apaga NEM os comentários (o freio vem antes de qualquer delete)
+  await regra("limpeza_dias", 90);
+  await regra("limpeza_taxa_horas", 0);
+  await assertRejects(() => limpar(p), Error, "limpeza_taxa_horas");
+  assertEquals(await contar(p, "from public.comentarios"), 1, "o comentário velho não devia cair");
+  assertEquals(await contar(p, "from public.cliques"), 1);
+  assertEquals(await contar(p, "from public.limite_taxa"), 1);
+
+  // com os dois prazos válidos de novo, a limpeza volta a funcionar
+  await regra("limpeza_taxa_horas", 24);
+  assertEquals(await limpar(p), { comentarios: 1, cliques: 1, taxas: 1 });
 });
