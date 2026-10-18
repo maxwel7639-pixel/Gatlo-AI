@@ -11,7 +11,7 @@ Edge Function pública (Deno) que manda as DMs do Gatlo AI. O agendador do banco
 | método diferente de `POST` | `405` |
 | `GATILHO_CRON_CHAVE` não configurado | `503 indisponível` (o detalhe vai só pro `console.error`) |
 | `x-cron-chave` ausente ou errado | `401` |
-| faltam `GATILHO_CHAVE_TOKENS` ou `GATILHO_SITE_URL` (ou a URL não começa com `http(s)://`) | `503 indisponível` |
+| faltam `GATILHO_CHAVE_TOKENS` ou `GATILHO_SITE_URL` (ou a URL não é `https://`; `http://` só vale para `localhost` e `127.0.0.1`) | `503 indisponível` |
 | rodada concluída | `200` com os números (`contas`, `enviadas`, `erros`, `respostas`, `pausadas`, `puladas`, `concorrencia`, `falhas`, `leituras`, `novos`, `leituraLimite`, `orcamento`); nunca texto de comentário nem token |
 | banco fora do ar, regra faltando | `500 falha na rodada` (o detalhe vai só pro log) |
 

@@ -39,6 +39,7 @@ Deno.test("regras lê a tabela e devolve cada número pelo nome (regra faltando 
     ["fila_janela_dias", 6],
     ["consulta_posts_recentes_dias", 7],
     ["consulta_posts_por_rodada", 5],
+    ["janela_resposta_privada_dias", 7],
     ["teste_dias", 7],
   ].map(([chave, valor]) => ({ chave, valor }));
   const { banco, pedidos } = comRespostas([{ corpo: linhas }, { corpo: linhas.slice(1) }]);
@@ -248,6 +249,7 @@ Deno.test("regras recusa valor fora do piso/teto seguro (0, negativo, gigante, f
     envio_pausa_resposta_min: 45,
     respostas_publicas_max_24h: 200,
     fila_janela_dias: 6,
+    janela_resposta_privada_dias: 7,
     consulta_posts_recentes_dias: 7,
     consulta_posts_por_rodada: 5,
   };
@@ -271,7 +273,8 @@ Deno.test("regras recusa valor fora do piso/teto seguro (0, negativo, gigante, f
     ["respostas_publicas_max_24h", -1],
     ["respostas_publicas_max_24h", 1001],
     ["fila_janela_dias", 0],
-    ["fila_janela_dias", 8], // a Meta só aceita resposta privada até 7 dias
+    ["fila_janela_dias", 7], // = janela da Meta (7): sem 1 dia de folga, a DM do fim da janela é recusada
+    ["fila_janela_dias", 8],
     ["consulta_posts_recentes_dias", 31],
     ["consulta_posts_por_rodada", 0],
     ["consulta_posts_por_rodada", 21],
@@ -287,6 +290,39 @@ Deno.test("regras recusa valor fora do piso/teto seguro (0, negativo, gigante, f
   }
 
   // os extremos válidos passam (0 respostas públicas = só DM)
-  const r = await ler({ envio_max_por_rodada: 30, respostas_publicas_max_24h: 0, fila_janela_dias: 7, envio_intervalo_segundos: 1 });
-  assertEquals([r.envioMaxPorRodada, r.respostasPublicasMax24h, r.filaJanelaDias, r.envioIntervaloSegundos], [30, 0, 7, 1]);
+  const r = await ler({ envio_max_por_rodada: 30, respostas_publicas_max_24h: 0, fila_janela_dias: 6, envio_intervalo_segundos: 1 });
+  assertEquals([r.envioMaxPorRodada, r.respostasPublicasMax24h, r.filaJanelaDias, r.envioIntervaloSegundos], [30, 0, 6, 1]);
+});
+
+Deno.test("regras: teto de fila_janela_dias = janela_resposta_privada_dias - 1, lida da mesma tabela (sem a chave, erro)", async () => {
+  const base = {
+    envio_max_por_rodada: 6,
+    envio_intervalo_segundos: 5,
+    envio_pausa_direct_min: 180,
+    envio_pausa_resposta_min: 45,
+    respostas_publicas_max_24h: 200,
+    consulta_posts_recentes_dias: 7,
+    consulta_posts_por_rodada: 5,
+  };
+  const ler = (mudanca: Record<string, number>) =>
+    comRespostas([{ corpo: Object.entries({ ...base, ...mudanca }).map(([chave, valor]) => ({ chave, valor })) }]).banco.regras();
+
+  assertEquals((await ler({ janela_resposta_privada_dias: 7, fila_janela_dias: 6 })).filaJanelaDias, 6); // janela - 1 passa
+  assertEquals((await ler({ janela_resposta_privada_dias: 10, fila_janela_dias: 9 })).filaJanelaDias, 9); // o teto acompanha a tabela
+  for (const [janela, fila] of [[7, 7], [10, 10]]) {
+    let erro: unknown = null;
+    try {
+      await ler({ janela_resposta_privada_dias: janela, fila_janela_dias: fila }); // fila = janela é recusada
+    } catch (e) {
+      erro = e;
+    }
+    assert(erro instanceof Error && erro.message.includes("fila_janela_dias"), `fila ${fila} com janela ${janela} devia ser recusada`);
+  }
+  let semJanela: unknown = null;
+  try {
+    await ler({ fila_janela_dias: 6 });
+  } catch (e) {
+    semJanela = e;
+  }
+  assert(semJanela instanceof Error && semJanela.message.includes("janela_resposta_privada_dias"));
 });

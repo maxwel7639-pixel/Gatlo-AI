@@ -21,7 +21,8 @@ const CHAVES_DAS_REGRAS = {
  * `regras` (0, negativo, gigante) faz a rodada ERRAR, não quebrar a fila nem estourar limite
  * da Meta. Os tetos têm folga sobre os valores de hoje e ficam abaixo dos limites da Meta:
  * - envio_max_por_rodada: 30 DMs a cada 3 min = 600/h, abaixo das 750/h da resposta privada;
- * - fila_janela_dias: 7, a janela da resposta privada da Meta (acima disso toda DM é recusada);
+ * - fila_janela_dias: o teto NÃO está aqui: é regras.janela_resposta_privada_dias menos 1 (a janela
+ *   da Meta, com 1 dia de folga como manda a regra da casa), lido da tabela na mesma leitura;
  * - respostas_publicas_max_24h: 0 vale (só DM, sem resposta pública).
  * Mexer aqui é decisão de negócio: a tabela `regras` continua sendo onde o valor mora.
  */
@@ -31,10 +32,11 @@ export const LIMITES_DAS_REGRAS = {
   envioPausaDirectMin: [1, 1440],
   envioPausaRespostaMin: [1, 1440],
   respostasPublicasMax24h: [0, 1000],
-  filaJanelaDias: [1, 7],
   consultaPostsRecentesDias: [1, 30],
   consultaPostsPorRodada: [1, 20],
-} as const satisfies Record<keyof Regras, readonly [number, number]>;
+} as const satisfies Record<Exclude<keyof Regras, "filaJanelaDias">, readonly [number, number]>;
+
+const CHAVE_JANELA_META = "janela_resposta_privada_dias";
 
 /**
  * Acesso ao banco com a service role (SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY, que o
@@ -59,12 +61,14 @@ export function bancoSupabase(
       const { data, error } = await sb.from("regras").select("chave, valor");
       if (error) throw falhou("regras", error);
       const porChave = new Map((data ?? []).map((l) => [String(l.chave), Number(l.valor)]));
+      const janela = porChave.get(CHAVE_JANELA_META);
+      if (janela === undefined || !Number.isFinite(janela)) throw new Error(`regra ${CHAVE_JANELA_META} não existe na tabela regras`);
       const lida = {} as Regras;
       for (const [campo, chave] of Object.entries(CHAVES_DAS_REGRAS) as [keyof Regras, string][]) {
         const valor = porChave.get(chave);
         // sem a regra, ERRO: o envio nunca roda com um número inventado
         if (valor === undefined || !Number.isFinite(valor)) throw new Error(`regra ${chave} não existe na tabela regras`);
-        const [min, max] = LIMITES_DAS_REGRAS[campo];
+        const [min, max] = campo === "filaJanelaDias" ? [1, janela - 1] : LIMITES_DAS_REGRAS[campo];
         if (!Number.isInteger(valor) || valor < min || valor > max) {
           throw new Error(`regra ${chave} fora do limite seguro (${min} a ${max}, inteiro); veio ${valor}`);
         }
