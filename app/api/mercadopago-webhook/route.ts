@@ -1,4 +1,3 @@
-import { NextResponse, type NextRequest } from "next/server";
 import { usaSupabase } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { receberAviso } from "@/lib/mp-webhook";
@@ -18,10 +17,10 @@ import { receberAviso } from "@/lib/mp-webhook";
  * excluída ignoram com ALERTA em nível de erro no log, porque o MP não reenvia).
  */
 export async function GET() {
-  return NextResponse.json({ ok: true });
+  return Response.json({ ok: true });
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   const corpo = await request.json().catch(() => null) as {
     type?: string;
     topic?: string;
@@ -29,9 +28,10 @@ export async function POST(request: NextRequest) {
     "data.id"?: string | number;
   } | null;
 
-  const tipo = corpo?.type ?? corpo?.topic ?? request.nextUrl.searchParams.get("type");
+  const url = new URL(request.url);
+  const tipo = corpo?.type ?? corpo?.topic ?? url.searchParams.get("type");
   // O MP assina o id que vai na URL (`data.id`); sem ele na URL, usa o do corpo.
-  const bruto = request.nextUrl.searchParams.get("data.id") ?? corpo?.data?.id ?? corpo?.["data.id"] ?? null;
+  const bruto = url.searchParams.get("data.id") ?? corpo?.data?.id ?? corpo?.["data.id"] ?? null;
   const id = bruto == null ? null : String(bruto);
 
   const r = await receberAviso(
@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
       // Erro do banco NÃO pode virar "ignorado" (200): o MP não reenviaria e o
       // pagamento confirmado ficaria sem crédito. Lança, e a resposta é 500.
       if (error) throw new Error(`registrar_pagamento: ${error.message}`);
-      if (data === "liberado" || data === "repetido" || data === "valor_divergente" || data === "sem_usuario") return data;
+      if (data === "liberado" || data === "repetido" || data === "valor_divergente" || data === "preapproval_divergente" || data === "sem_usuario") return data;
       throw new Error(`registrar_pagamento devolveu algo inesperado: ${String(data)}`);
     },
   );
-  if (r.status !== 200) console.error("[mercadopago-webhook]", r.status, r.corpo.erro);
-  return NextResponse.json(r.corpo, { status: r.status });
+  if (r.status === 500) console.error("[mercadopago-webhook]", r.status, r.corpo.erro);
+  return Response.json(r.corpo, { status: r.status });
 }

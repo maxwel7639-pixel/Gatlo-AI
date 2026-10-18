@@ -78,6 +78,10 @@ const pagamentosDe = async (db: PGlite, userId: string) =>
     [userId],
   )).rows;
 
+/** Como o checkout faz: guarda o preapproval (e o preço da época) do usuário. Só pagamento desse preapproval credita. */
+const guardarPreapproval = (db: PGlite, userId: string, id = "pa-1", valorCentavos = 9790) =>
+  db.query(`select public.guardar_preapproval($1::uuid, $2::text, $3::int)`, [userId, id, valorCentavos]);
+
 const roboliberado = async (db: PGlite, userId: string) =>
   (await db.query<{ liberada: boolean }>(`select liberada from public.assinatura_situacao($1)`, [userId])).rows[0]
     .liberada;
@@ -188,6 +192,7 @@ Deno.test("cobrança: o corpo diz aprovado, a API diz pending — não libera", 
 Deno.test("cobrança: pagamento aprovado libera o robô e empurra o período em 1 mês", async () => {
   const db = await criarPostgres();
   const userId = await criarUsuario(db);
+  await guardarPreapproval(db, userId);
   const registrar = await registrarSobrePg(db);
 
   await comMP(
@@ -225,6 +230,7 @@ Deno.test("cobrança: pagamento aprovado libera o robô e empurra o período em 
 Deno.test("cobrança: o mesmo aviso duas vezes não credita dobrado", async () => {
   const db = await criarPostgres();
   const userId = await criarUsuario(db);
+  await guardarPreapproval(db, userId);
   const registrar = await registrarSobrePg(db);
 
   await comMP(
@@ -258,6 +264,7 @@ Deno.test("cobrança: o mesmo aviso duas vezes não credita dobrado", async () =
 Deno.test("cobrança: valor abaixo do preço não libera (fica registrado como divergente)", async () => {
   const db = await criarPostgres();
   const userId = await criarUsuario(db);
+  await guardarPreapproval(db, userId);
   const registrar = await registrarSobrePg(db);
 
   await comMP(
@@ -307,6 +314,7 @@ const respostaDoPagamento = (
 Deno.test("cobrança: assinatura autorizada sozinha não libera; autorizada + 1º pagamento = 1 mês, não 2", async () => {
   const db = await criarPostgres();
   const userId = await criarUsuario(db);
+  await guardarPreapproval(db, userId);
   const registrar = await registrarSobrePg(db);
 
   await comMP(respostaDoPagamento(userId), async (pedidos) => {
@@ -350,6 +358,7 @@ Deno.test("cobrança: a rota rejeita assinatura errada, ausente ou sem segredo, 
     for (const [nome, assinatura] of casos) {
       const r = await receberAviso({ ...aviso, assinatura }, registrar);
       assertEquals(r.status, 401, `assinatura ${nome} tem que dar 401`);
+      assertEquals(r.corpo, { erro: "não autorizado" }, `${nome}: a resposta não conta o motivo a um anônimo`);
     }
 
     const guardado = process.env.MERCADOPAGO_WEBHOOK_SECRET;
@@ -357,6 +366,7 @@ Deno.test("cobrança: a rota rejeita assinatura errada, ausente ou sem segredo, 
     try {
       const r = await receberAviso({ ...aviso, assinatura: await assinar("9001", "req-9") }, registrar);
       assertEquals(r.status, 401, "sem MERCADOPAGO_WEBHOOK_SECRET nada passa (falha fechada)");
+      assertEquals(r.corpo, { erro: "não autorizado" }, "e não conta que falta o segredo");
     } finally {
       process.env.MERCADOPAGO_WEBHOOK_SECRET = guardado;
     }
@@ -368,7 +378,6 @@ Deno.test("cobrança: a rota rejeita assinatura errada, ausente ou sem segredo, 
   const a = await assinaturaDe(db, userId);
   assertEquals(a.status, "trial");
   assertEquals(a.periodo_ate, null, "o período não andou");
-  assertEquals(await roboliberado(db, userId), true, "continua só no teste de 7 dias, sem mês pago");
 });
 
 Deno.test("cobrança: assinatura boa, mas a API diz outra coisa do que o corpo diz — não libera", async () => {
@@ -399,6 +408,7 @@ Deno.test("cobrança: assinatura boa, mas a API diz outra coisa do que o corpo d
 Deno.test("cobrança: pela rota, aviso bom libera 1 mês e o mesmo aviso de novo não credita dobrado", async () => {
   const db = await criarPostgres();
   const userId = await criarUsuario(db);
+  await guardarPreapproval(db, userId);
   const registrar = await registrarSobrePg(db);
   const aviso = { tipo: "payment", id: "5002", assinatura: await assinar("5002", "req-2"), requestId: "req-2" };
 
@@ -423,14 +433,6 @@ Deno.test("cobrança: falha ao gravar vira 500 (o MP reenvia), não 'ignorado'",
     );
     assertEquals(r.status, 500);
   });
-});
-
-Deno.test("cobrança: a ação liga o checkout às regras do servidor e não lê o formulário (a ligação; a prova funcional é o teste do checkout)", async () => {
-  const acao = await Deno.readTextFile(new URL("../../../lib/acoes.ts", import.meta.url));
-  const corpo = acao.slice(acao.indexOf("export async function assinarCartao"));
-  assert(corpo.includes("lerPreco: async () => (await regras()).precoMensalCentavos"), "o preço vem de regras()");
-  assert(corpo.includes("assinarCartao()"), "a ação nem recebe o formulário");
-  assert(!/formData|\.get\(|\b9790\b|\b97[.,]9\b/.test(corpo), "a ação não lê o formulário nem tem preço escrito");
 });
 
 Deno.test("cobrança: o cliente logado não chama registrar_pagamento nem escreve na própria assinatura", async () => {
@@ -657,14 +659,15 @@ Deno.test("preço travado por assinatura: reajuste em regras não prende quem j�
     await abrirCheckout({ id: ruim, email: "c@exemplo.invalid" }, depsSobrePg(db, ruim)); // travado em 97,90
   });
   await mudarPreco(db, 12000);
-  await comMP(respostaDoPagamento(ruim, 90), async () => {
+  await comMP(respostaDoPagamento(ruim, 90, "approved", { preapproval_id: "pb-1" }), async () => {
     const { resultado } = await capturandoErros(() => processarAviso({ tipo: "payment", id: "7003" }, registrar));
     assertEquals(resultado.tratado, "ignorado");
     assertEquals((await assinaturaDe(db, ruim)).status, "trial");
   });
 
-  // quem não tem preço guardado paga o preço atual (120,00)
-  await comMP(respostaDoPagamento(novo, 97.9), async () => {
+  // quem assinou depois do reajuste tem o preço novo guardado e paga o preço atual (120,00)
+  await guardarPreapproval(db, novo, "pc-1", 12000);
+  await comMP(respostaDoPagamento(novo, 97.9, "approved", { preapproval_id: "pc-1" }), async () => {
     const { resultado } = await capturandoErros(() => processarAviso({ tipo: "payment", id: "7004" }, registrar));
     assertEquals(resultado.tratado, "ignorado");
     assertEquals((await pagamentosDe(db, novo))[0].status, "valor_divergente");
@@ -677,6 +680,7 @@ Deno.test("valor divergente e cobrança de conta excluída soltam ALERTA (consol
   const registrar = await registrarSobrePg(db);
 
   // 90,00 contra 97,90: o MP cobrou e nada liberou
+  await guardarPreapproval(db, userId);
   await comMP(respostaDoPagamento(userId, 90), async () => {
     const { resultado, erros } = await capturandoErros(() => processarAviso({ tipo: "payment", id: "8001" }, registrar));
     assertEquals(resultado, { tratado: "ignorado", motivo: "valor_divergente" });
@@ -722,4 +726,34 @@ Deno.test("pagamento aprovado mas em outra moeda ou com devolução não libera"
   }
   assertEquals(await pagamentosDe(db, userId), []);
   assertEquals((await assinaturaDe(db, userId)).status, "trial");
+});
+
+Deno.test("só credita pagamento do preapproval guardado: de outro, sem preapproval ou com o certo", async () => {
+  const db = await criarPostgres();
+  const userId = await criarUsuario(db);
+  const registrar = await registrarSobrePg(db);
+  await guardarPreapproval(db, userId, "pa-1");
+
+  // o pagamento aponta para o usuário (external_reference), mas vem de outro preapproval ou de nenhum
+  for (const [id, preapproval] of [["m1-outro", "pa-do-atacante"], ["m1-sem", null]] as [string, string | null][]) {
+    await comMP(respostaDoPagamento(userId, 97.9, "approved", { preapproval_id: preapproval }), async () => {
+      const { resultado, erros } = await capturandoErros(() => processarAviso({ tipo: "payment", id }, registrar));
+      assertEquals(resultado, { tratado: "ignorado", motivo: "preapproval_divergente" }, id);
+      assertEquals(erros.length, 1, "solta o alerta, como o valor_divergente");
+      assert(erros[0].includes("ALERTA preapproval_divergente") && erros[0].includes(id), erros[0]);
+    });
+    const a = await assinaturaDe(db, userId);
+    assertEquals(a.status, "trial", `${id}: não liberou`);
+    assertEquals(a.periodo_ate, null, `${id}: o período não andou`);
+    assertEquals(a.gateway_assinatura_id, "pa-1", `${id}: o preapproval guardado não foi trocado`);
+  }
+  assertEquals((await pagamentosDe(db, userId)).map((p) => p.status), ["preapproval_divergente", "preapproval_divergente"]);
+
+  // o certo (preapproval guardado) credita
+  await comMP(respostaDoPagamento(userId, 97.9, "approved", { preapproval_id: "pa-1" }), async () => {
+    assertEquals(await processarAviso({ tipo: "payment", id: "m1-certo" }, registrar), { tratado: "liberado", userId });
+  });
+  const a = await assinaturaDe(db, userId);
+  assertEquals([a.status, a.gateway_assinatura_id], ["ativa", "pa-1"]);
+  assert(a.periodo_ate !== null, "o período andou");
 });

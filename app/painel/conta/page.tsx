@@ -130,14 +130,18 @@ export default async function Conta({
                 </div>
                 <div className="text-left sm:text-right">
                   <p className="text-2xl font-bold">{emReais(r.precoMensalCentavos)}</p>
-                  <p className="text-xs text-suave">por mês · cartão ou Pix Automático</p>
+                  {/* Só cartão por enquanto: voltar a citar Pix Automático quando o C2 existir. */}
+                  <p className="text-xs text-suave">por mês · cartão</p>
                 </div>
               </div>
             ) : (
               <p className="text-sm text-suave">Não achei a tua assinatura. Fala com o suporte.</p>
             )}
-            <AssinarCartao preco={emReais(r.precoMensalCentavos)} ativa={situacao?.status === "ativa"} demonstracao={!usaSupabase} />
-            {q.assinatura === "iniciada" && situacao?.status !== "ativa" ? (
+            {/* Sem assinatura no banco não abre checkout: o clique criaria um preapproval no MP sem dono certo. */}
+            {situacao ? (
+              <AssinarCartao preco={emReais(r.precoMensalCentavos)} ativa={situacao.status === "ativa"} demonstracao={!usaSupabase} />
+            ) : null}
+            {q.assinatura === "iniciada" && situacao && situacao.status !== "ativa" ? (
               <div className="mt-3">
                 <Aviso tipo="info">
                   Se tu concluiu o pagamento no Mercado Pago, a assinatura ativa sozinha em alguns minutos. Recarrega

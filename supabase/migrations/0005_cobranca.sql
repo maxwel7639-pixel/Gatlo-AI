@@ -11,18 +11,29 @@
 --     no preapproval daquele usuário (`assinaturas.valor_centavos`, gravado por
 --     `guardar_preapproval` quando o checkout é criado). Reajuste vale só para
 --     assinatura nova. Sem valor guardado, vale o preço atual (como antes).
---  2. DEVOLVE TEXTO em vez de boolean, para o servidor saber o que aconteceu e
+--  2. SÓ CREDITA PAGAMENTO DO PREAPPROVAL GUARDADO. O pagamento chega com o
+--     `external_reference` (que aponta o usuário) e o `preapproval_id`, ambos
+--     lidos da API do MP. Só credita se o preapproval_id for igual ao
+--     `gateway_assinatura_id` guardado do usuário: pagamento sem preapproval,
+--     ou de outro, é guardado como `preapproval_divergente` e não libera.
+--  3. DEVOLVE TEXTO em vez de boolean, para o servidor saber o que aconteceu e
 --     alertar quando é dinheiro que entrou sem liberar:
 --       'liberado'          pagamento novo, valor ok, período empurrado 1 mês
 --       'repetido'          o gateway reenviou um pagamento já registrado
+--       'preapproval_divergente'  o preapproval do pagamento não é o guardado
+--                           do usuário (ausente ou outro): guardado, não libera
 --       'valor_divergente'  valor abaixo do preço devido: guardado, não libera
 --       'sem_usuario'       usuário não existe (conta excluída): guardado sem
 --                           dono, não libera. É cobrança órfã que pede estorno.
---  3. NÃO QUEBRA com usuário que não existe. Antes, o FK de pagamentos.user_id
+--  4. NÃO QUEBRA com usuário que não existe. Antes, o FK de pagamentos.user_id
 --     virava exceção, a rota respondia 500 e o MP reenviava para sempre.
 --
 -- Pagamentos continuam idempotentes por (gateway, gateway_pagamento_id).
 -- ============================================================================
+
+alter table public.pagamentos drop constraint if exists pagamentos_status_check;
+alter table public.pagamentos add constraint pagamentos_status_check
+  check (status in ('aprovado', 'valor_divergente', 'preapproval_divergente', 'estornado'));
 
 drop function if exists public.registrar_pagamento(text, text, uuid, int, text);
 
@@ -43,17 +54,22 @@ declare
   v_travado  int;
   v_devido   int;
   v_existe   boolean;
+  v_confere  boolean;
   v_status   text;
   v_id       uuid;
 begin
-  select true, case when a.gateway = p_gateway and a.gateway_assinatura_id = p_gateway_assinatura_id
-                    then nullif(a.valor_centavos, 0) end
-    into v_existe, v_travado
+  -- o preapproval do pagamento tem que ser o guardado (null nunca confere)
+  select true,
+         coalesce(a.gateway = p_gateway and a.gateway_assinatura_id = p_gateway_assinatura_id, false),
+         nullif(a.valor_centavos, 0)
+    into v_existe, v_confere, v_travado
     from public.assinaturas a
    where a.user_id = p_user_id;
 
   v_devido := least(v_preco, coalesce(v_travado, v_preco));
-  v_status := case when p_valor_centavos >= v_devido then 'aprovado' else 'valor_divergente' end;
+  v_status := case when coalesce(v_existe, false) and not v_confere then 'preapproval_divergente'
+                   when p_valor_centavos >= v_devido then 'aprovado'
+                   else 'valor_divergente' end;
 
   -- usuário que não existe mais: o pagamento fica guardado SEM dono (prova para o estorno)
   insert into public.pagamentos (gateway, gateway_pagamento_id, user_id, status, valor_centavos, pago_em)
@@ -64,7 +80,7 @@ begin
 
   if v_id is null then return 'repetido'; end if;
   if not coalesce(v_existe, false) then return 'sem_usuario'; end if;
-  if v_status <> 'aprovado' then return 'valor_divergente'; end if;
+  if v_status <> 'aprovado' then return v_status; end if;
 
   update public.assinaturas
   set status = 'ativa',
