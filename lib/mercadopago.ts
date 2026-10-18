@@ -1,0 +1,105 @@
+import "server-only";
+import { PRODUTO, SITE_URL } from "./config";
+
+/**
+ * API do Mercado Pago, do jeito que o cliente assina no CARTÃO: a assinatura
+ * recorrente (`preapproval`), não uma compra avulsa.
+ *
+ * O cliente escolhe o QUE assinar; o SERVIDOR decide QUANTO custa. Por isso o
+ * preço entra como argumento (`precoCentavos`), lido por quem chamou a partir
+ * da tabela `regras` — aqui dentro não tem preço escrito, e nem deve ter: o
+ * preço do produto é dinheiro, e dinheiro mora no banco.
+ */
+
+const API = "https://api.mercadopago.com";
+
+function token(): string {
+  const t = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  if (!t) throw new Error("MERCADOPAGO_ACCESS_TOKEN não configurado.");
+  return t;
+}
+
+async function mp<T>(caminho: string, init?: RequestInit & { idempotencia?: string }): Promise<T> {
+  const { idempotencia, ...resto } = init ?? {};
+
+  const r = await fetch(`${API}${caminho}`, {
+    ...resto,
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      "Content-Type": "application/json",
+      ...(idempotencia ? { "X-Idempotency-Key": idempotencia } : {}),
+      ...(resto.headers ?? {}),
+    },
+    cache: "no-store",
+  });
+
+  const corpo = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const motivo = (corpo as { message?: string }).message ?? r.status;
+    throw new Error(`Mercado Pago ${caminho} respondeu ${r.status}: ${motivo}`);
+  }
+  return corpo as T;
+}
+
+/**
+ * A referência diz QUEM é o dono do pagamento: "assinatura|<user id>". Ela vem
+ * SEMPRE da API do MP, nunca do corpo do webhook (lá dentro manda qualquer um
+ * na internet) — um aviso forjado não escolhe para quem creditar.
+ */
+export type ReferenciaAssinatura = { tipo: "assinatura"; userId: string } | null;
+
+export function lerReferencia(referencia: string | null | undefined): ReferenciaAssinatura {
+  if (!referencia) return null;
+  const separado = referencia.split("|");
+  const tipo = separado[0];
+  const userId = separado.slice(1).join("|");
+  if (tipo !== "assinatura" || !/^[0-9a-f-]{36}$/i.test(userId)) return null;
+  return { tipo: "assinatura", userId };
+}
+
+export type PagamentoMP = {
+  id: string | number;
+  status: string;
+  transaction_amount: number | null;
+  external_reference: string | null;
+  preapproval_id: string | null;
+};
+
+/**
+ * Cria a assinatura recorrente e devolve o endereço do checkout do MP.
+ * `precoCentavos` é quem chama que manda (regras.preco_mensal_centavos).
+ */
+export async function criarAssinatura(o: {
+  userId: string;
+  email: string;
+  precoCentavos: number;
+}): Promise<string> {
+  const r = await mp<{ init_point: string | null; sandbox_init_point: string | null }>("/v1/payments/preapproval", {
+    method: "POST",
+    // mesma requisição, mesmo resultado: o duplo clique não cria duas assinaturas
+    idempotencia: `assinatura-${o.userId}`,
+    body: JSON.stringify({
+      reason: `${PRODUTO.nome} — assinatura mensal`,
+      external_reference: `assinatura|${o.userId}`,
+      payer_email: o.email,
+      back_url: `${SITE_URL}/painel/conta?assinatura=iniciada`,
+      // é o endereço desta rota que recebe os avisos (app/api/mercadopago-webhook)
+      notification_url: `${SITE_URL}/api/mercadopago-webhook`,
+      status: "pending",
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: o.precoCentavos / 100,
+        currency_id: "BRL",
+      },
+    }),
+  });
+
+  const url = r.init_point ?? r.sandbox_init_point;
+  if (!url) throw new Error("Mercado Pago não devolveu o endereço do checkout.");
+  return url;
+}
+
+export async function consultarPagamento(id: string): Promise<PagamentoMP> {
+  return await mp<PagamentoMP>(`/v1/payments/${encodeURIComponent(id)}`);
+}

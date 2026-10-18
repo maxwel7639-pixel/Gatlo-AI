@@ -8,6 +8,7 @@ import { dataCurta, numero } from "@/lib/formato";
 import { Aviso, Avatar, Cartao, Selo, classeBotao } from "@/components/ui";
 import { CabecalhoPagina, ConectarInstagram } from "@/components/painel/blocos";
 import { ExcluirConta } from "@/components/painel/excluir-conta";
+import { AssinarCartao } from "@/components/painel/assinar-cartao";
 import { IconeCheck, IconeInstagram } from "@/components/icones";
 
 export const metadata: Metadata = { title: "Conta" };
@@ -30,7 +31,7 @@ const PERMISSOES = [
 export default async function Conta({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; aviso?: string; desconectado?: string }>;
+  searchParams: Promise<{ erro?: string; aviso?: string; desconectado?: string; assinatura?: string }>;
 }) {
   const q = await searchParams;
   const { usuario, conta, situacao, demonstracao } = await basePainel();
@@ -134,9 +135,13 @@ export default async function Conta({
             ) : (
               <p className="text-sm text-suave">Não achei a tua assinatura. Fala com o suporte.</p>
             )}
-            <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">
-              O pagamento (cartão pelo Mercado Pago ou Pix Automático pelo Asaas) chega na próxima etapa do painel.
-            </p>
+            <AssinarCartao preco={emReais(r.precoMensalCentavos)} ativa={situacao?.status === "ativa"} />
+            {q.assinatura === "iniciada" ? (
+              <Aviso tipo="ok">
+                Valeu! O pagamento é confirmado pelo Mercado Pago e a assinatura ativa sozinha em instantes. Se não
+                voltou pro painel na hora, recarrega a página.
+              </Aviso>
+            ) : null}
           </Cartao>
         </section>
 

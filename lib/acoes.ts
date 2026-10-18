@@ -13,6 +13,8 @@ import { postsDaConta } from "./instagram";
 import { lerFormulario, type Erros } from "./automacao-validar";
 import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
+import { regras } from "./regras";
+import { criarAssinatura } from "./mercadopago";
 
 /**
  * As ações do painel. TODA ação começa com exigirUsuario(): o id do usuário
@@ -168,4 +170,41 @@ export async function excluirConta(_: EstadoExclusao, form: FormData): Promise<E
 
   revalidatePath("/", "layout");
   redirect("/entrar?erro=conta_excluida");
+}
+
+/* --------------------------------------------------------------- assinar */
+
+export type EstadoAssinatura = { erro?: string };
+
+/**
+ * Abre o checkout da assinatura no cartão (Mercado Pago). O preço NÃO vem do
+ * navegador: o servidor lê `regras.preco_mensal_centavos` e manda pro MP. O
+ * robô só é liberado depois que o webhook do MP confirma o pagamento na API
+ * (lib/mp-webhook.ts) — este botão não libera nada sozinho.
+ */
+export async function assinarCartao(): Promise<EstadoAssinatura> {
+  const usuario = await exigirUsuario();
+  if (!usaSupabase) {
+    return { erro: "No modo demonstração não dá pra assinar: aqui não passa cartão de ninguém." };
+  }
+  if (!(await dentroDaTaxa(`assinar:${usuario.id}`, 5, 3600))) {
+    return { erro: "Muitas tentativas de assinatura numa hora. Espera um pouco e tenta de novo." };
+  }
+
+  let url: string;
+  try {
+    // Já ativa: um 2º checkout viraria cobrança dobrada. A tela esconde o botão,
+    // mas a ação confere de novo (o navegador pode mandar qualquer coisa).
+    if ((await repo().situacao(usuario.id))?.status === "ativa") {
+      return { erro: "A tua assinatura já está ativa." };
+    }
+    const r = await regras();
+    url = await criarAssinatura({ userId: usuario.id, email: usuario.email, precoCentavos: r.precoMensalCentavos });
+  } catch (e) {
+    console.error("[assinarCartao]", e instanceof Error ? e.message : e);
+    return { erro: "Não deu pra abrir a assinatura agora. Tenta de novo em instantes." };
+  }
+  // O redirect joga a página fora: tem que ficar FORA do try/catch, senão o
+  // Next engole o NEXT_REDIRECT como se fosse erro.
+  redirect(url);
 }
