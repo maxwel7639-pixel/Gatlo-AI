@@ -16,6 +16,9 @@
 --  3. `assinatura_situacao`: `cancelada` MANTÉM O ACESSO ATÉ O FIM DO PERÍODO PAGO
 --     (sem a carência de pagamento atrasado: quem cancelou não está atrasado) e
 --     `estornado` nunca libera. O formato da resposta é o mesmo.
+--  4. `registrar_pagamento`, `guardar_preapproval` e `guardar_autorizacao_asaas`
+--     redefinidas: pagamento que chega com a assinatura `cancelada` dá o mês mas
+--     mantém `cancelada`; abrir um checkout novo desfaz o cancelamento.
 -- ============================================================================
 
 alter table public.assinaturas drop constraint if exists assinaturas_status_check;
@@ -59,6 +62,132 @@ as $$
   where a.user_id = p_user_id;
 $$;
 revoke execute on function public.assinatura_situacao(uuid) from public, anon, authenticated;
+
+
+-- ----------------------------------------------------------------------------
+-- registrar_pagamento (a da 0005 com UMA mudança): pagamento que chega com a
+-- assinatura `cancelada` dá o mês (o dinheiro entrou; o acesso é do período)
+-- mas MANTÉM `cancelada`. Antes ele fazia `status = 'ativa'` sem olhar o atual:
+-- uma cobrança que já estava a caminho no gateway quando o cliente cancelou
+-- ressuscitava a assinatura e o botão de cancelar mentia. Quem assina de novo
+-- depois de cancelar volta a `ativa` pelo guardar_preapproval /
+-- guardar_autorizacao_asaas (abaixo), que desfazem o cancelamento ao abrir o
+-- checkout novo.
+-- ----------------------------------------------------------------------------
+create or replace function public.registrar_pagamento(
+  p_gateway               text,
+  p_gateway_pagamento_id  text,
+  p_user_id               uuid,
+  p_valor_centavos        int,
+  p_gateway_assinatura_id text default null
+)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_preco    int := public.regra('preco_mensal_centavos')::int;
+  v_travado  int;
+  v_devido   int;
+  v_existe   boolean;
+  v_confere  boolean;
+  v_atual    text;
+  v_status   text;
+  v_id       uuid;
+begin
+  select true,
+         coalesce(a.gateway = p_gateway and a.gateway_assinatura_id = p_gateway_assinatura_id, false),
+         nullif(a.valor_centavos, 0),
+         a.status
+    into v_existe, v_confere, v_travado, v_atual
+    from public.assinaturas a
+   where a.user_id = p_user_id;
+
+  v_devido := least(v_preco, coalesce(v_travado, v_preco));
+  v_status := case when coalesce(v_existe, false) and not v_confere then 'preapproval_divergente'
+                   when p_valor_centavos >= v_devido then 'aprovado'
+                   else 'valor_divergente' end;
+
+  insert into public.pagamentos (gateway, gateway_pagamento_id, user_id, status, valor_centavos, pago_em)
+  values (p_gateway, p_gateway_pagamento_id, case when coalesce(v_existe, false) then p_user_id end,
+          v_status, p_valor_centavos, now())
+  on conflict (gateway, gateway_pagamento_id) do nothing
+  returning id into v_id;
+
+  if v_id is null then return 'repetido'; end if;
+  if not coalesce(v_existe, false) then return 'sem_usuario'; end if;
+  if v_status <> 'aprovado' then return v_status; end if;
+
+  update public.assinaturas
+  set status = case when status = 'cancelada' then 'cancelada' else 'ativa' end,
+      gateway = p_gateway,
+      gateway_assinatura_id = coalesce(p_gateway_assinatura_id, gateway_assinatura_id),
+      valor_centavos = p_valor_centavos,
+      periodo_ate = greatest(coalesce(periodo_ate, now()), now()) + interval '1 month'
+  where user_id = p_user_id;
+
+  return 'liberado';
+end;
+$$;
+revoke execute on function public.registrar_pagamento(text, text, uuid, int, text) from public, anon, authenticated;
+grant execute on function public.registrar_pagamento(text, text, uuid, int, text) to service_role;
+
+
+-- Assinar de novo depois de cancelar: abrir o checkout novo desfaz o `cancelada`
+-- (com período pago sobrando volta a `ativa`, sem período vira `vencida`), senão o
+-- 1º pagamento do checkout novo ficaria `cancelada` para sempre.
+create or replace function public.guardar_preapproval(
+  p_user_id               uuid,
+  p_gateway_assinatura_id text,
+  p_valor_centavos        int
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.assinaturas
+  set gateway = 'mercadopago',
+      gateway_assinatura_id = p_gateway_assinatura_id,
+      valor_centavos = p_valor_centavos,
+      status = case when status = 'cancelada'
+                    then case when periodo_ate > now() then 'ativa' else 'vencida' end
+                    else status end
+  where user_id = p_user_id and status <> 'ativa';
+  return found;
+end;
+$$;
+revoke execute on function public.guardar_preapproval(uuid, text, int) from public, anon, authenticated;
+grant execute on function public.guardar_preapproval(uuid, text, int) to service_role;
+
+create or replace function public.guardar_autorizacao_asaas(
+  p_user_id          uuid,
+  p_cliente_id       text,
+  p_autorizacao_id   text,
+  p_valor_centavos   int
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.assinaturas
+  set gateway = 'asaas',
+      gateway_cliente_id = p_cliente_id,
+      gateway_assinatura_id = p_autorizacao_id,
+      valor_centavos = p_valor_centavos,
+      status = case when status = 'cancelada'
+                    then case when periodo_ate > now() then 'ativa' else 'vencida' end
+                    else status end
+  where user_id = p_user_id and status <> 'ativa';
+  return found;
+end;
+$$;
+revoke execute on function public.guardar_autorizacao_asaas(uuid, text, text, int) from public, anon, authenticated;
+grant execute on function public.guardar_autorizacao_asaas(uuid, text, text, int) to service_role;
 
 
 -- Resultados: 'cancelada' (mudou), 'repetida' (já estava cancelada),
