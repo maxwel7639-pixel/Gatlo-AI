@@ -15,6 +15,7 @@ import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
 import { abrirCheckoutDoServidor } from "./mp-checkout-servidor";
 import { abrirAutorizacaoDoServidor } from "./asaas-servidor";
+import { cancelarDoUsuario, cancelarEApagar } from "./cancelar-servidor";
 
 /**
  * As ações do painel. TODA ação começa com exigirUsuario(): o id do usuário
@@ -148,11 +149,12 @@ export async function excluirConta(_: EstadoExclusao, form: FormData): Promise<E
   }
 
   if (usaSupabase) {
-    const { error } = await createAdminClient().auth.admin.deleteUser(usuario.id);
-    if (error) {
-      console.error("[excluirConta]", error.message);
-      return { erro: "Não consegui excluir agora. Tenta de novo ou escreve pro suporte." };
+    // cancela no gateway ANTES de apagar; se falhar, a conta fica (lib/cancelar-servidor.ts)
+    const r = await cancelarEApagar(usuario.id, async () => (await createAdminClient().auth.admin.deleteUser(usuario.id)).error);
+    if (r === "gateway") {
+      return { erro: "Não consegui cancelar a tua assinatura no gateway, então a conta não foi apagada. Tenta de novo em instantes ou escreve pro suporte." };
     }
+    if (r === "apagar") return { erro: "Não consegui excluir agora. Tenta de novo ou escreve pro suporte." };
     await (await createClient()).auth.signOut();
   } else {
     mudar((b) => {
@@ -233,4 +235,28 @@ export async function assinarPix(_anterior: EstadoPix, formulario: FormData): Pr
     console.error("[assinarPix]", e instanceof Error ? e.message : e);
     return { erro: "Não deu pra abrir o Pix Automático agora. Tenta de novo em instantes." };
   }
+}
+
+export type EstadoCancelamento = { erro?: string; ok?: string };
+
+/**
+ * O botão "cancelar assinatura": pede o cancelamento AO GATEWAY e mais nada. O
+ * nosso banco não muda aqui; vira `cancelada` quando o aviso do gateway chega e o
+ * webhook confere na API. O id cancelado é o guardado no banco, não o do navegador.
+ */
+export async function cancelarAssinatura(): Promise<EstadoCancelamento> {
+  const usuario = await exigirUsuario();
+  if (!usaSupabase) return { erro: "No modo demonstração não tem assinatura pra cancelar." };
+  if (!(await dentroDaTaxa(`cancelar:${usuario.id}`, 5, 3600))) {
+    return { erro: "Muitas tentativas numa hora. Espera um pouco e tenta de novo." };
+  }
+  try {
+    const r = await cancelarDoUsuario(usuario.id);
+    if (r === "nada") return { erro: "Não achei assinatura pra cancelar." };
+  } catch (e) {
+    console.error("[cancelarAssinatura]", e instanceof Error ? e.message : e);
+    return { erro: "Não deu pra cancelar agora. Tenta de novo em instantes." };
+  }
+  revalidatePath("/painel/conta");
+  return { ok: "Pedido de cancelamento enviado. Quando o gateway confirmar, a assinatura aparece como cancelada aqui (pode levar alguns minutos). Teu acesso segue até o fim do período pago." };
 }
