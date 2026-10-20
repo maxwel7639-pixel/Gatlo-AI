@@ -61,6 +61,8 @@ export type DepsAsaas = {
   /** Estorno e cancelamento (migration 0007). Quem testa só um pedaço pode omitir; o que faltar e for preciso LANÇA (rota 500). */
   estornar?: Estornar;
   marcar?: Marcar;
+  /** Cancela no gateway a assinatura guardada do usuário (lib/cancelar-servidor.ts). Lança se não conseguir. */
+  cancelar?: (userId: string) => Promise<unknown>;
 };
 
 export type ResultadoAvisoAsaas =
@@ -147,16 +149,29 @@ async function estorno(id: string | null, d: DepsAsaas): Promise<ResultadoAvisoA
   if (!id || !ID_COBRANCA.test(id)) return { tratado: "ignorado", motivo: "aviso sem id de cobrança" };
   const p = await ouNaoExiste(consultarCobranca(id));
   if (!p) return { tratado: "ignorado", motivo: "cobrança não existe no Asaas" };
-  if (!STATUS_DEVOLVIDO.has(p.status) && (p.refunds?.length ?? 0) === 0) {
+
+  if (!STATUS_DEVOLVIDO.has(p.status)) {
+    // Devolução PARCIAL (cobrança ainda paga, com devoluções): não tira nada, só alerta.
+    if ((p.refunds?.length ?? 0) > 0) {
+      console.error(`[asaas-webhook] ALERTA devolucao_parcial: cobrança ${p.id} (${p.status}) tem ${p.refunds?.length} devolução(ões); nada foi revogado. Conferir no Asaas.`);
+      return { tratado: "ignorado", motivo: "devolução parcial" };
+    }
     return { tratado: "ignorado", motivo: "cobrança sem devolução" };
   }
-  if (!d.estornar) throw new Error("webhook sem `estornar` configurado");
+
+  if (!d.estornar || !d.cancelar) throw new Error("webhook sem `estornar`/`cancelar` configurado");
   const e = await d.estornar({ gateway: "asaas", gatewayPagamentoId: String(p.id) });
-  if (e === "estornado") {
-    console.error(`[asaas-webhook] estorno: cobrança ${p.id} (${p.status}) revogou o período.`);
-    return { tratado: "estornado" };
-  }
-  return { tratado: "ignorado", motivo: e === "repetido" ? "estorno repetido" : "cobrança nunca creditada" };
+  if (e === "desconhecido") return { tratado: "ignorado", motivo: "cobrança nunca creditada" };
+
+  // `estornado` ou `repetido`: cancela a assinatura guardada (no reenvio depois de falha tenta de novo; falhar = 500).
+  // O dono vem do cliente que NÓS criamos, lido da API.
+  const cliente = p.customer ? await ouNaoExiste(consultarCliente(p.customer)) : null;
+  const ref = lerReferencia(cliente?.externalReference);
+  if (ref) await d.cancelar(ref.userId);
+  else console.error(`[asaas-webhook] ALERTA estorno_sem_dono: cobrança ${p.id} estornada sem referência de usuário; cancelar a autorização no Asaas à mão.`);
+  if (e === "repetido") return { tratado: "ignorado", motivo: "estorno repetido" };
+  console.error(`[asaas-webhook] estorno: cobrança ${p.id} (${p.status}) revogou o período e cancelou a assinatura.`);
+  return { tratado: "estornado" };
 }
 
 /**

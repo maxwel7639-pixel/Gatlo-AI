@@ -1,5 +1,6 @@
 import { CABECALHO_TOKEN, receberAviso } from "@/lib/asaas-webhook";
 import { autorizacaoGuardadaDoServidor } from "@/lib/asaas-servidor";
+import { cancelarDoUsuario } from "@/lib/cancelar-servidor";
 import { estornarNoBanco, marcarCanceladaNoBanco, registrarNoBanco } from "@/lib/registrar-pagamento";
 
 /**
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
       autorizacaoId: typeof corpo?.authorization?.id === "string" ? corpo.authorization.id : null,
       token: request.headers.get(CABECALHO_TOKEN),
     },
-    { registrar: registrarNoBanco, autorizacaoGuardada: autorizacaoGuardadaDoServidor, estornar: estornarNoBanco, marcar: marcarCanceladaNoBanco },
+    { registrar: registrarNoBanco, autorizacaoGuardada: autorizacaoGuardadaDoServidor, estornar: estornarNoBanco, marcar: marcarCanceladaNoBanco, cancelar: cancelarDoUsuario },
   );
   if (r.status === 500) console.error("[asaas-webhook]", r.status, r.corpo.erro);
   return Response.json(r.corpo, { status: r.status });

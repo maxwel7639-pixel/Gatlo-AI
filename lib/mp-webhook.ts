@@ -38,7 +38,12 @@ export type ResultadoMarcar = "cancelada" | "repetida" | "nao_guardada" | "sem_e
 export type Marcar = (m: { userId: string; gateway: "mercadopago" | "asaas"; gatewayAssinaturaId: string }) => Promise<ResultadoMarcar>;
 
 /** Quem testa só um pedaço pode omitir; o que faltar e for preciso LANÇA (rota 500, o gateway reenvia: falha fechada). */
-export type DepsMP = { estornar?: Estornar; marcar?: Marcar };
+export type DepsMP = {
+  estornar?: Estornar;
+  marcar?: Marcar;
+  /** Cancela no gateway a assinatura guardada do usuário (lib/cancelar-servidor.ts). Lança se não conseguir. */
+  cancelar?: (userId: string) => Promise<unknown>;
+};
 
 export type ResultadoAviso =
   | { tratado: "liberado"; userId: string }
@@ -80,19 +85,28 @@ export async function processarAviso(
     if (tipo === "payment") {
       // A cobrança de dentro da assinatura (a 1ª e as mensais), com o id dela.
       const p = await consultarPagamento(id);
-      // Estorno e chargeback: a API é que diz. Devolução parcial também conta (é a
-      // mesma regra do crédito, que recusa pagamento com devolução).
-      const devolvido = p.status === "refunded" || p.status === "charged_back" ||
-        (p.status === "approved" && (p.transaction_amount_refunded ?? 0) > 0);
-      if (devolvido) {
-        if (!d.estornar) throw new Error("webhook sem `estornar` configurado");
+      // Estorno e chargeback: a API é que diz. Total (`refunded`, `charged_back` ou tudo
+      // devolvido) tira o mês E cancela a assinatura no gateway. Devolução PARCIAL
+      // não tira nada: só alerta (e antes do crédito segue sem creditar, como no C1).
+      const devolvido = p.transaction_amount_refunded ?? 0;
+      const total = p.status === "refunded" || p.status === "charged_back" ||
+        (p.status === "approved" && devolvido > 0 && devolvido >= (p.transaction_amount ?? Infinity));
+      if (!total && p.status === "approved" && devolvido > 0) {
+        console.error(`[mercadopago-webhook] ALERTA devolucao_parcial: pagamento ${p.id} teve ${devolvido} de ${p.transaction_amount} devolvidos; nada foi revogado. Conferir no MP.`);
+        return { tratado: "ignorado", motivo: "pagamento com devolução" };
+      }
+      if (total) {
+        if (!d.estornar || !d.cancelar) throw new Error("webhook sem `estornar`/`cancelar` configurado");
         const e = await d.estornar({ gateway: "mercadopago", gatewayPagamentoId: String(p.id) });
-        if (e === "estornado") {
-          console.error(`[mercadopago-webhook] estorno: pagamento ${p.id} (${p.status}) revogou o período.`);
-          return { tratado: "estornado" };
-        }
-        // nunca creditamos esse pagamento (ou já revogamos): não há o que tirar
-        return { tratado: "ignorado", motivo: e === "repetido" ? "estorno repetido" : "pagamento com devolução" };
+        // nunca creditamos esse pagamento: não há o que tirar nem o que cancelar
+        if (e === "desconhecido") return { tratado: "ignorado", motivo: "pagamento com devolução" };
+        // `estornado` ou `repetido`: cancela a guardada (no reenvio depois de falha tenta de novo; falhar = 500)
+        const ref = lerReferencia(p.external_reference);
+        if (ref) await d.cancelar(ref.userId);
+        else console.error(`[mercadopago-webhook] ALERTA estorno_sem_dono: pagamento ${p.id} estornado sem referência de usuário; cancelar a assinatura no MP à mão.`);
+        if (e === "repetido") return { tratado: "ignorado", motivo: "estorno repetido" };
+        console.error(`[mercadopago-webhook] estorno: pagamento ${p.id} (${p.status}) revogou o período e cancelou a assinatura.`);
+        return { tratado: "estornado" };
       }
       if (p.status !== "approved") return { tratado: "ignorado", motivo: `pagamento ${p.status}` };
       // Aprovado não basta: tem que ser em reais.
