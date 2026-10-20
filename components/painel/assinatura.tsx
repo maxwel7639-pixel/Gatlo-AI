@@ -50,7 +50,7 @@ export function visaoDaAssinatura(s: Situacao, carenciaDias: number, agora = Dat
       ate: { rotulo: "Paga até", valor: periodo },
       texto: noFiado
         ? `A cobrança de ${periodo} ainda não entrou. O robô segue liberado por até ${carenciaDias} dias de tolerância; se o pagamento não cair, ele pausa.`
-        : `A próxima cobrança vem por volta de ${periodo}. Cancelar para de cobrar e o acesso vai até o fim do que já foi pago.`,
+        : `A próxima cobrança vem por volta de ${periodo}, no mesmo meio de pagamento.`,
       proximo: noFiado ? "Conferir o pagamento" : "Nada: renova sozinha",
       passo: "nenhum",
       cancelar: "botao",
@@ -78,7 +78,7 @@ export function visaoDaAssinatura(s: Situacao, carenciaDias: number, agora = Dat
   if (s.status === "estornado") {
     return {
       titulo: "Pagamento estornado",
-      ate: { rotulo: "Sem acesso desde", valor: periodo },
+      ate: { rotulo: "Acesso pago", valor: s.periodoAte ? `acabou em ${periodo}` : "nenhum mês pago" },
       texto: "O pagamento foi devolvido, o mês dele saiu da conta e a cobrança foi cancelada. O robô está pausado.",
       proximo: "Assinar de novo",
       passo: "assinar_de_novo",
@@ -108,8 +108,8 @@ export function visaoDaAssinatura(s: Situacao, carenciaDias: number, agora = Dat
 
 /**
  * O cartão "Assinatura" da /painel/conta. Server component: só mostra a situação
- * e põe os botões, que chamam ações de servidor (lib/acoes.ts). Fora do app de
- * verdade (`gateway` falso) não há checkout nem cancelamento.
+ * e põe os botões, que chamam ações de servidor (lib/acoes.ts). Na demonstração
+ * (`gateway` falso) os botões aparecem, mas as ações recusam sozinhas.
  */
 export function Assinatura({
   situacao,
@@ -167,22 +167,18 @@ export function Assinatura({
 
       {/* Sem assinatura no banco, ou já ativa, não abre checkout: o clique criaria cobrança sem dono certo ou dobrada. */}
       {v.passo !== "nenhum" ? (
-        gateway ? (
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            <AssinarCartao preco={preco} deNovo={deNovo} />
-            <AssinarPix preco={preco} deNovo={deNovo} />
-          </div>
-        ) : (
-          <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">Assinatura só no app de verdade.</p>
-        )
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <AssinarCartao preco={preco} deNovo={deNovo} />
+          <AssinarPix preco={preco} deNovo={deNovo} />
+        </div>
       ) : null}
 
       {/* Só o clique pede ao gateway; o status muda quando ele avisa. */}
-      {gateway && v.cancelar === "botao" ? <CancelarAssinatura /> : null}
-      {gateway && v.cancelar === "escondido" ? (
+      {v.cancelar === "botao" ? <CancelarAssinatura /> : null}
+      {v.cancelar === "escondido" ? (
         <details className="group mt-3 rounded-xl border border-borda px-4 py-3">
           <summary className="cursor-pointer rounded text-sm font-semibold text-suave transition-colors hover:text-texto">
-            {situacao.status === "trial" || situacao.periodoAte === null
+            {situacao.periodoAte === null
               ? "Abriu o checkout ou o QR e quer trocar de cartão para Pix (ou o contrário)?"
               : "Ainda aparece cobrança no teu cartão ou no teu Pix?"}
           </summary>
@@ -196,6 +192,10 @@ export function Assinatura({
             rotulo="Cancelar cobrança aberta"
           />
         </details>
+      ) : null}
+
+      {!gateway ? (
+        <p className="mt-3 text-xs text-apagado">Modo demonstração: os botões aqui não cobram nem cancelam nada de verdade.</p>
       ) : null}
 
       {iniciada && v.passo !== "nenhum" ? (

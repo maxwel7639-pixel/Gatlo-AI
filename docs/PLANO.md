@@ -143,6 +143,16 @@ Fontes lidas em docs.asaas.com (18/10/2026): `/docs/pix-automatico`, `/docs/pix-
 - **Não verificável sem gateway real (precisa de OK do Maxwel):** se o `PUT` do MP aceita `cancelled` em preapproval `pending` e se o aviso chega com o tipo e o `data.id` esperados; o corpo exato do aviso `REFUSED` do Asaas (a página não traz exemplo; usamos `authorization.id` como no `CANCELLED`); se `DELETE` da autorização leva o `subscriptionId` junto ou se o `DELETE /subscriptions` é mesmo necessário; os status de devolução reais de uma cobrança Pix estornada; se o MP manda `payment` ao estornar e ao perder chargeback.
 - **Fora do C3:** cancelar um checkout/QR **pendente** (usuário ainda no teste, que quer trocar de cartão para Pix) continua sem botão: o botão só aparece com assinatura `ativa` (C4 decide a tela dos estados); ligar um aviso de verdade aos `ALERTA`/estornos do log.
 
+### Decisões do C4 (tela /painel/conta), 20/10/2026
+
+- **Um texto por estado, lido da situação do banco.** `components/painel/assinatura.tsx` (`visaoDaAssinatura`) só LÊ `assinatura_situacao`; não decide acesso. Cada estado diz três coisas numa grade: **Robô** (liberado ou pausado), **até quando** (`Teste até`, `Paga até`, `Acesso até`, `Terminou em`, `Venceu em`) e **próximo passo**. "Teste acabou" e "vencida" chegam os dois como `vencida`; o que separa é nunca ter pago (`periodoAte` nulo), sem mexer em lib nem banco.
+- **Assinar de novo nos dois gateways** para `cancelada` (com ou sem período), `estornado` e `vencida` (botões "Assinar de novo no cartão" e "Assinar de novo no Pix"). Teste ativo e teste acabou seguem com "Assinar". Com `ativa` não abre checkout (como antes).
+- **Cancelar fora do `ativa`.** Reaproveita `cancelarAssinatura` (id guardado, só pede ao gateway; nada de banco ou webhook). Aparece num bloco recolhido ("Ainda aparece cobrança no teu cartão ou no teu Pix?") para `vencida` com cobrança viva, e ("Abriu o checkout ou o QR e quer trocar de cartão para Pix?") para quem está no teste ou com o teste acabado. Recolhido de propósito: a maioria não tem nada aberto, e sem cobrança o clique devolve "Não achei assinatura pra cancelar". `ativa` mantém o botão à vista. Para `cancelada` e `estornado` não há botão (o C3 já cancelou no gateway).
+- **Mensagens da ação.** As duas respostas de `cancelarAssinatura` diziam "aparece como cancelada" e "acesso segue até o fim do período pago", o que é falso para teste pendente e para vencida. Agora dizem só que o pedido saiu (ou que já estava cancelado) e mandam recarregar a página.
+- **Demonstração.** Os botões aparecem também no modo demonstração, com uma linha avisando que não cobram nada; as ações já recusam sem Supabase. Antes sumiam, e nenhum estado dava para conferir na tela.
+- **Texto honesto.** "Próxima cobrança por volta de" (a data real é do gateway); nada de promessa de entrega, de bloqueio ou de número de vendas.
+- **Fora do C4:** o cartão do rodapé da barra lateral (`components/painel/nav.tsx`) diz "O teste acabou. Assina pra voltar." também para assinatura vencida; texto de outro componente, não mexi. Estado "ativa dentro da tolerância" tem texto próprio mas não foi fotografado.
+
 ---
 
 ## Fase D · publicar
