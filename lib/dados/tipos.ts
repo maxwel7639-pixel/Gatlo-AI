@@ -62,7 +62,7 @@ export type Comentario = {
   respostaEm: string | null;
 };
 
-export type StatusAssinatura = "trial" | "ativa" | "vencida" | "cancelada";
+export type StatusAssinatura = "trial" | "ativa" | "vencida" | "cancelada" | "estornado";
 
 /** A resposta de assinatura_situacao(): quem decide é o banco. */
 export type Situacao = {

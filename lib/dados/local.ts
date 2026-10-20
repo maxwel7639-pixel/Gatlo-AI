@@ -172,6 +172,9 @@ export const repositorioLocal: Repositorio = {
     } else if (a.status === "ativa") {
       liberada = periodoAte !== null && periodoAte + carencia > agora;
       if (!liberada) status = "vencida";
+    } else if (a.status === "cancelada") {
+      // cancelou: usa o que já pagou, sem carência (0007_cancelar.sql)
+      liberada = periodoAte !== null && periodoAte > agora;
     }
     const fim = a.status === "trial" ? trialAte : (periodoAte ?? agora);
     return {
