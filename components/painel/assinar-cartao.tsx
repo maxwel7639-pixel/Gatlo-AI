@@ -18,7 +18,7 @@ export function AssinarCartao({ preco }: { preco: string }) {
   return (
     <form action={acao} className="flex flex-col justify-between gap-4 rounded-xl bg-superficie-2 px-4 py-4">
       <p className="text-sm text-suave">
-        <strong className="text-texto">{preco}</strong> por mês, no cartão, pelo Mercado Pago. Cancela direto no Mercado Pago, em Assinaturas.
+        <strong className="text-texto">{preco}</strong> por mês, no cartão, pelo Mercado Pago. Cancela aqui mesmo, quando quiser.
       </p>
       <div>
         <button type="submit" disabled={enviando} className={classeBotao("primario", "sm")}>

@@ -11,6 +11,7 @@ import { CabecalhoPagina, ConectarInstagram } from "@/components/painel/blocos";
 import { ExcluirConta } from "@/components/painel/excluir-conta";
 import { AssinarCartao } from "@/components/painel/assinar-cartao";
 import { AssinarPix } from "@/components/painel/assinar-pix";
+import { CancelarAssinatura } from "@/components/painel/cancelar-assinatura";
 import { IconeCheck, IconeInstagram } from "@/components/icones";
 
 export const metadata: Metadata = { title: "Conta" };
@@ -117,7 +118,9 @@ export default async function Conta({
                           ? "Assinatura ativa"
                           : situacao.status === "cancelada"
                             ? "Assinatura cancelada"
-                            : "Teste ou assinatura vencida"}
+                            : situacao.status === "estornado"
+                              ? "Pagamento estornado"
+                              : "Teste ou assinatura vencida"}
                     </p>
                     {situacao.liberada ? <Selo cor="verde">Robô liberado</Selo> : <Selo cor="amarelo">Robô pausado</Selo>}
                   </div>
@@ -148,6 +151,8 @@ export default async function Conta({
                 <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">Assinatura só no app de verdade.</p>
               )
             ) : null}
+            {/* Só o clique pede ao gateway; o status muda quando ele avisa. */}
+            {situacao?.status === "ativa" && usaSupabase ? <CancelarAssinatura /> : null}
             {q.assinatura === "iniciada" && situacao && situacao.status !== "ativa" ? (
               <div className="mt-3">
                 <Aviso tipo="info">
