@@ -50,6 +50,7 @@ async function depsWebhookSobrePg(db: PGlite) {
     estornar: async (e: { gateway: "mercadopago" | "asaas"; gatewayPagamentoId: string }) =>
       (await db.query<{ r: "estornado" | "repetido" | "desconhecido" }>(
         `select public.estornar_pagamento($1::text, $2::text) as r`, [e.gateway, e.gatewayPagamentoId])).rows[0].r,
+    cancelar: async () => {},
   };
 }
 

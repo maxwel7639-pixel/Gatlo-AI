@@ -23,7 +23,7 @@ delete process.env.ASAAS_AMBIENTE;
 
 const mpRota = await import("../../../app/api/mercadopago-webhook/route.ts");
 const asaasRota = await import("../../../app/api/asaas-webhook/route.ts");
-const { cancelarDoUsuario, cancelarEApagar } = await import("../../../lib/cancelar-servidor.ts");
+const { cancelarDoUsuario, cancelarEApagar, cancelarPeloBotao } = await import("../../../lib/cancelar-servidor.ts");
 
 const json = (corpo: unknown, status = 200) => Response.json(corpo, { status });
 
@@ -40,6 +40,7 @@ class Gateways {
   // o que foi pedido de mudança (PUT/DELETE), em ordem, e quando o banco apagou o usuário
   mutacoes: string[] = [];
   cancelamentoFalha = false;
+  consultaMPFalha = false;
 
   preapproval(id: string, userId: string, status = "authorized") {
     this.preapprovals.set(id, { id, status, external_reference: `assinatura|${userId}`, init_point: null });
@@ -74,7 +75,9 @@ class Gateways {
     const ler = <T>(m: Map<string, T>) => (m.has(id) ? json(m.get(id)) : json({ message: "não encontrado", errors: [{ description: "não encontrado" }] }, 404));
 
     if (u.host === "api.mercadopago.com") {
-      if (p.method === "GET" && caminho.startsWith("/preapproval/")) return ler(this.preapprovals);
+      if (p.method === "GET" && caminho.startsWith("/preapproval/")) {
+        return this.consultaMPFalha ? json({ message: "fora do ar" }, 503) : ler(this.preapprovals);
+      }
       if (p.method === "GET" && caminho.startsWith("/v1/payments/")) return ler(this.pagamentos);
       if (p.method === "PUT" && caminho.startsWith("/preapproval/")) {
         const corpo = await p.clone().json();
@@ -477,7 +480,7 @@ Deno.test("excluir conta (Asaas): cancela autorização e assinatura antes de ap
 
 /* ======================================== 3b. estorno e chargeback depois de pago */
 
-Deno.test("estorno (MP): refunded e charged_back revogam o período (conferido na API), uma vez só", async () => {
+Deno.test("estorno (MP): refunded e charged_back tiram o mês E cancelam a assinatura no gateway; o reenvio não tira 2 meses", async () => {
   for (const status of ["refunded", "charged_back"]) {
     const db = await criarPostgres();
     const g = new Gateways();
@@ -485,56 +488,92 @@ Deno.test("estorno (MP): refunded e charged_back revogam o período (conferido n
     assertEquals(await situacaoDe(db, userId), { status: "ativa", liberada: true });
 
     await comServidores(db, g, async () => {
-      // aviso forjado: o corpo não diz nada; a API ainda diz aprovado sem devolução
+      // aviso forjado: a API ainda diz aprovado sem devolução
       assertEquals((await (await avisoMP("payment", "1001")).json()).motivo, "aviso repetido");
       assertEquals((await assinaturaDe(db, userId)).status, "ativa");
+      assertEquals(g.mutacoes, []);
 
       g.pagamentoMP("1001", userId, { status });
       const r = await avisoMP("payment", "1001");
       assertEquals([r.status, (await r.json()).tratado], [200, "estornado"]);
       assertEquals(await situacaoDe(db, userId), { status: "estornado", liberada: false });
       assertEquals(await pagamentosDe(db, userId), [{ gateway_pagamento_id: "1001", status: "estornado" }]);
+      assertEquals(g.mutacoes, ["mp PUT pa-1 cancelled"], "cancelou a guardada no MP");
 
-      // idempotente: o reenvio não tira outro mês
+      // reenvio: não tira outro mês e não pede o cancelamento de novo (já está cancelado)
       const periodo = (await assinaturaDe(db, userId)).periodo_ate;
       assertEquals((await (await avisoMP("payment", "1001")).json()).motivo, "estorno repetido");
       assertEquals((await assinaturaDe(db, userId)).periodo_ate, periodo);
+      assertEquals(g.mutacoes.length, 1);
     });
   }
 });
 
-Deno.test("estorno (MP): devolução parcial conta; pagamento que nunca creditamos não revoga nada; estorno de 1 de 2 meses tira só 1 mês", async () => {
+Deno.test("estorno (MP): se o cancelamento no gateway falha, a rota dá 500; o reenvio devolve 'repetido' mas cancela de novo", async () => {
   const db = await criarPostgres();
   const g = new Gateways();
   const userId = await usuarioPagoNoCartao(db, g);
 
   await comServidores(db, g, async () => {
-    // 2º mês pago
+    g.pagamentoMP("1001", userId, { status: "refunded" });
+    g.cancelamentoFalha = true;
+    const { resultado: r } = await capturandoErros(() => avisoMP("payment", "1001"));
+    assertEquals(r.status, 500, "o MP reenvia");
+    // o período já foi tirado (o estorno gravou antes de cancelar)
+    assertEquals((await situacaoDe(db, userId)).liberada, false);
+    assertEquals(g.preapprovals.get("pa-1")!.status, "authorized");
+
+    g.cancelamentoFalha = false;
+    const periodo = (await assinaturaDe(db, userId)).periodo_ate;
+    const r2 = await avisoMP("payment", "1001");
+    assertEquals([r2.status, (await r2.json()).motivo], [200, "estorno repetido"]);
+    assertEquals(g.preapprovals.get("pa-1")!.status, "cancelled", "o reenvio cancelou no gateway");
+    assertEquals((await assinaturaDe(db, userId)).periodo_ate, periodo, "não tirou o 2º mês");
+  });
+});
+
+Deno.test("estorno (MP): devolução PARCIAL depois do crédito não tira nada e só alerta; pagamento nunca creditado não revoga; devolvido por inteiro tira só o mês dele", async () => {
+  const db = await criarPostgres();
+  const g = new Gateways();
+  const userId = await usuarioPagoNoCartao(db, g);
+
+  await comServidores(db, g, async () => {
     g.pagamentoMP("1002", userId);
     assertEquals((await (await avisoMP("payment", "1002")).json()).tratado, "liberado");
     const dois = new Date((await assinaturaDe(db, userId)).periodo_ate!).getTime();
 
-    // pagamento de ninguém (nunca creditado) devolvido: nada acontece
+    // pagamento de ninguém (nunca creditado) devolvido: nada acontece, nada é cancelado
     g.pagamentoMP("9999", userId, { status: "refunded" });
     assertEquals((await (await avisoMP("payment", "9999")).json()).motivo, "pagamento com devolução");
     assertEquals(new Date((await assinaturaDe(db, userId)).periodo_ate!).getTime(), dois);
+    assertEquals(g.mutacoes, []);
 
-    // devolução parcial do 1º mês (approved com valor devolvido): tira 1 mês e segue ativa
+    // parcial (10 de 97,90): só ALERTA, o período e o gateway ficam como estão
     g.pagamentoMP("1001", userId, { transaction_amount_refunded: 10 });
-    assertEquals((await (await avisoMP("payment", "1001")).json()).tratado, "estornado");
+    const { resultado: r, erros } = await capturandoErros(() => avisoMP("payment", "1001"));
+    assertEquals((await r.json()).motivo, "pagamento com devolução");
+    assert(erros.some((e) => e.includes("ALERTA devolucao_parcial")), "o alerta vai pro log: " + erros);
+    assertEquals(new Date((await assinaturaDe(db, userId)).periodo_ate!).getTime(), dois);
+    assertEquals(await pagamentosDe(db, userId), [{ gateway_pagamento_id: "1001", status: "aprovado" }, { gateway_pagamento_id: "1002", status: "aprovado" }]);
+    assertEquals(g.mutacoes, []);
+
+    // o 2º mês devolvido por inteiro (approved com tudo devolvido): tira 1 mês, segue ativa com o 1º, e cancela no gateway
+    g.pagamentoMP("1002", userId, { transaction_amount_refunded: 97.9 });
+    assertEquals((await (await avisoMP("payment", "1002")).json()).tratado, "estornado");
     const um = new Date((await assinaturaDe(db, userId)).periodo_ate!).getTime();
     const dias = (dois - um) / 86_400_000;
     assert(dias > 27 && dias < 32, `tirou ~1 mês, tirou ${dias.toFixed(1)} dias`);
     assertEquals(await situacaoDe(db, userId), { status: "ativa", liberada: true });
+    assertEquals(g.mutacoes, ["mp PUT pa-1 cancelled"]);
 
-    // o 2º também: agora não sobra nada
-    g.pagamentoMP("1002", userId, { status: "charged_back" });
-    assertEquals((await (await avisoMP("payment", "1002")).json()).tratado, "estornado");
+    // o 1º também: agora não sobra nada
+    g.pagamentoMP("1001", userId, { status: "charged_back" });
+    assertEquals((await (await avisoMP("payment", "1001")).json()).tratado, "estornado");
     assertEquals(await situacaoDe(db, userId), { status: "estornado", liberada: false });
   });
 });
 
-Deno.test("estorno (Asaas): PAYMENT_REFUNDED conferido na API revoga o período, uma vez só; o corpo sozinho não revoga", async () => {
+Deno.test("estorno (Asaas): PAYMENT_REFUNDED conferido na API tira o mês E cancela autorização e assinatura; parcial só alerta; o corpo sozinho não revoga", async () => {
   const db = await criarPostgres();
   const g = new Gateways();
   const userId = await usuarioPagoNoPix(db, g);
@@ -546,20 +585,49 @@ Deno.test("estorno (Asaas): PAYMENT_REFUNDED conferido na API revoga o período,
     assertEquals((await assinaturaDe(db, userId)).status, "ativa");
     assertEquals((await avisoAsaas(eventoPag("PAYMENT_REFUNDED", "pay_1"), "errado")).status, 401);
 
+    // devolução parcial: cobrança segue RECEIVED com devoluções: só alerta
+    g.cobranca("pay_1", { refunds: [{ value: 10 }] });
+    const parcial = await capturandoErros(() => avisoAsaas(eventoPag("PAYMENT_PARTIALLY_REFUNDED", "pay_1")));
+    assertEquals((await parcial.resultado.json()).motivo, "devolução parcial");
+    assert(parcial.erros.some((e) => e.includes("ALERTA devolucao_parcial")));
+    assertEquals((await assinaturaDe(db, userId)).status, "ativa");
+    assertEquals(g.mutacoes, []);
+
     g.cobranca("pay_1", { status: "REFUNDED" });
     r = await avisoAsaas(eventoPag("PAYMENT_REFUNDED", "pay_1"));
     assertEquals([r.status, (await r.json()).tratado], [200, "estornado"]);
     assertEquals(await situacaoDe(db, userId), { status: "estornado", liberada: false });
     assertEquals(await pagamentosDe(db, userId), [{ gateway_pagamento_id: "pay_1", status: "estornado" }]);
+    assertEquals(g.mutacoes, ["asaas DELETE autorizacao aut-1", "asaas DELETE assinatura sub_1"]);
 
+    // reenvio: não tira outro mês; tenta cancelar de novo (autorização já cancelada: só garante a assinatura, 404 aceito)
     const periodo = (await assinaturaDe(db, userId)).periodo_ate;
     assertEquals((await (await avisoAsaas(eventoPag("PAYMENT_REFUNDED", "pay_1"))).json()).motivo, "estorno repetido");
     assertEquals((await assinaturaDe(db, userId)).periodo_ate, periodo);
+    assertEquals(g.autorizacoes.get("aut-1")!.status, "CANCELLED");
 
     // cobrança que nunca creditamos e id malformado
     g.cobranca("pay_2", { status: "REFUNDED" });
     assertEquals((await (await avisoAsaas(eventoPag("PAYMENT_REFUNDED", "pay_2"))).json()).motivo, "cobrança nunca creditada");
     assertEquals((await (await avisoAsaas(eventoPag("PAYMENT_REFUNDED", "../x"))).json()).motivo, "aviso sem id de cobrança");
+  });
+});
+
+Deno.test("estorno (Asaas): se o cancelamento no Asaas falha, a rota dá 500 e o reenvio cancela", async () => {
+  const db = await criarPostgres();
+  const g = new Gateways();
+  const userId = await usuarioPagoNoPix(db, g);
+
+  await comServidores(db, g, async () => {
+    g.cobranca("pay_1", { status: "REFUNDED" });
+    g.cancelamentoFalha = true;
+    const { resultado: r } = await capturandoErros(() => avisoAsaas(eventoPag("PAYMENT_REFUNDED", "pay_1")));
+    assertEquals(r.status, 500);
+    assertEquals(g.autorizacoes.get("aut-1")!.status, "ACTIVE");
+    g.cancelamentoFalha = false;
+    assertEquals((await (await avisoAsaas(eventoPag("PAYMENT_REFUNDED", "pay_1"))).json()).motivo, "estorno repetido");
+    assertEquals(g.autorizacoes.get("aut-1")!.status, "CANCELLED");
+    assertEquals((await situacaoDe(db, userId)).liberada, false);
   });
 });
 
@@ -574,5 +642,122 @@ Deno.test("estorno: depois de estornado, um pagamento novo volta a liberar", asy
     g.pagamentoMP("1003", userId);
     assertEquals((await (await avisoMP("payment", "1003")).json()).tratado, "liberado");
     assertEquals(await situacaoDe(db, userId), { status: "ativa", liberada: true });
+  });
+});
+
+/* ================= botão com o gateway já cancelado, pagamento depois de cancelar, 404 do MP */
+
+Deno.test("botão: gateway já cancelado marca cancelada (a API confirmou); teste e id que não é o guardado não mudam", async () => {
+  // cartão: cancelado direto no MP, aviso perdido
+  const db = await criarPostgres();
+  const g = new Gateways();
+  const userId = await usuarioPagoNoCartao(db, g);
+  await comServidores(db, g, async () => {
+    g.preapprovals.get("pa-1")!.status = "cancelled";
+    assertEquals(await cancelarPeloBotao(userId), "ja_cancelado");
+    assertEquals(g.mutacoes, [], "não pediu de novo");
+    assertEquals(await situacaoDe(db, userId), { status: "cancelada", liberada: true });
+    // clicar de novo continua coerente
+    assertEquals(await cancelarPeloBotao(userId), "ja_cancelado");
+    assertEquals((await assinaturaDe(db, userId)).status, "cancelada");
+  });
+
+  // Pix: autorização já CANCELLED no Asaas
+  const db2 = await criarPostgres();
+  const g2 = new Gateways();
+  const u2 = await usuarioPagoNoPix(db2, g2);
+  await comServidores(db2, g2, async () => {
+    g2.autorizacoes.get("aut-1")!.status = "CANCELLED";
+    assertEquals(await cancelarPeloBotao(u2), "ja_cancelado");
+    assertEquals((await assinaturaDe(db2, u2)).status, "cancelada");
+  });
+
+  // quem está só no teste (checkout pendente já cancelado) continua no teste
+  const db3 = await criarPostgres();
+  const g3 = new Gateways();
+  const u3 = await criarUsuario(db3);
+  await db3.query(`select public.guardar_preapproval($1::uuid, 'pa-1', 9790)`, [u3]);
+  g3.preapproval("pa-1", u3, "cancelled");
+  await comServidores(db3, g3, async () => {
+    assertEquals(await cancelarPeloBotao(u3), "ja_cancelado");
+    assertEquals(await situacaoDe(db3, u3), { status: "trial", liberada: true });
+  });
+});
+
+Deno.test("botão: gateway ainda cobrando só pede o cancelamento e não grava; sem assinatura = nada", async () => {
+  const db = await criarPostgres();
+  const g = new Gateways();
+  const userId = await usuarioPagoNoCartao(db, g);
+  await comServidores(db, g, async () => {
+    assertEquals(await cancelarPeloBotao(userId), "cancelado");
+    assertEquals(g.mutacoes, ["mp PUT pa-1 cancelled"]);
+    assertEquals((await assinaturaDe(db, userId)).status, "ativa", "o aviso é que muda");
+    assertEquals(await cancelarPeloBotao(await criarUsuario(db)), "nada");
+  });
+});
+
+Deno.test("pagamento que chega com a assinatura cancelada dá o mês mas MANTÉM cancelada; assinar de novo desfaz o cancelamento", async () => {
+  const db = await criarPostgres();
+  const g = new Gateways();
+  const userId = await usuarioPagoNoCartao(db, g);
+  g.preapprovals.get("pa-1")!.status = "cancelled";
+
+  await comServidores(db, g, async () => {
+    await avisoMP("subscription_preapproval", "pa-1");
+    assertEquals((await assinaturaDe(db, userId)).status, "cancelada");
+    const antes = new Date((await assinaturaDe(db, userId)).periodo_ate!).getTime();
+
+    // a cobrança que já estava a caminho quando o cliente cancelou
+    g.pagamentoMP("1002", userId);
+    assertEquals((await (await avisoMP("payment", "1002")).json()).tratado, "liberado");
+    const depois = await assinaturaDe(db, userId);
+    assertEquals(depois.status, "cancelada", "não ressuscita");
+    const dias = (new Date(depois.periodo_ate!).getTime() - antes) / 86_400_000;
+    assert(dias > 27 && dias < 32, `o mês entrou: ${dias.toFixed(1)} dias`);
+    assertEquals(await situacaoDe(db, userId), { status: "cancelada", liberada: true });
+
+    // assina de novo (checkout novo, com período pago sobrando): volta a ativa
+    await db.query(`select public.guardar_preapproval($1::uuid, 'pa-2', 9790)`, [userId]);
+    assertEquals((await assinaturaDe(db, userId)).status, "ativa");
+    // sem período sobrando: vencida até o 1º pagamento do checkout novo, que então ativa
+    await db.query(`update public.assinaturas set status = 'cancelada', periodo_ate = now() - interval '1 day' where user_id = $1`, [userId]);
+    await db.query(`select public.guardar_preapproval($1::uuid, 'pa-3', 9790)`, [userId]);
+    assertEquals((await situacaoDe(db, userId)).status, "vencida");
+    g.preapproval("pa-3", userId);
+    g.pagamentoMP("1003", userId, { preapproval_id: "pa-3" });
+    assertEquals((await (await avisoMP("payment", "1003")).json()).tratado, "liberado");
+    assertEquals(await situacaoDe(db, userId), { status: "ativa", liberada: true });
+  });
+
+  // o mesmo no Pix: nova autorização desfaz o cancelamento (tinha período pago)
+  const db2 = await criarPostgres();
+  const g2 = new Gateways();
+  const u2 = await usuarioPagoNoPix(db2, g2);
+  await db2.query(`update public.assinaturas set status = 'cancelada' where user_id = $1`, [u2]);
+  await db2.query(`select public.guardar_autorizacao_asaas($1::uuid, 'cus_1', 'aut-2', 9790)`, [u2]);
+  assertEquals((await assinaturaDe(db2, u2)).status, "ativa");
+});
+
+Deno.test("excluir conta (MP): preapproval que nem existe mais (404) não prende a exclusão; erro 5xx continua falhando fechado", async () => {
+  const db = await criarPostgres();
+  const g = new Gateways();
+  const userId = await usuarioPagoNoCartao(db, g);
+
+  await comServidores(db, g, async () => {
+    let apagou = 0;
+    const apagar = async () => {
+      apagou++;
+      return null;
+    };
+    // MP fora do ar na consulta (5xx): a conta fica
+    g.consultaMPFalha = true;
+    assertEquals((await capturandoErros(() => cancelarEApagar(userId, apagar))).resultado, "gateway");
+    assertEquals(apagou, 0);
+    g.consultaMPFalha = false;
+
+    // o MP diz 404: não existe mais, nada cobrando, apaga (e não pediu cancelamento)
+    g.preapprovals.delete("pa-1");
+    assertEquals(await cancelarEApagar(userId, apagar), "ok");
+    assertEquals([apagou, g.mutacoes], [1, []]);
   });
 });
