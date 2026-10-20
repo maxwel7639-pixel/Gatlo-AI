@@ -44,6 +44,15 @@ async function assinar(dataId: string, requestId: string, ts = "1700000000", seg
 
 type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
 
+/** O banco por trás de `estornar_pagamento` (0007): o mesmo RPC que a rota usa. */
+async function depsWebhookSobrePg(db: PGlite) {
+  return {
+    estornar: async (e: { gateway: "mercadopago" | "asaas"; gatewayPagamentoId: string }) =>
+      (await db.query<{ r: "estornado" | "repetido" | "desconhecido" }>(
+        `select public.estornar_pagamento($1::text, $2::text) as r`, [e.gateway, e.gatewayPagamentoId])).rows[0].r,
+  };
+}
+
 /** O banco por trás da dependência `registrar`: o mesmo RPC que a rota usa. */
 async function registrarSobrePg(db: PGlite): Promise<Registrar> {
   return async (r) => {
@@ -321,7 +330,8 @@ Deno.test("cobrança: assinatura autorizada sozinha não libera; autorizada + 1�
     // o MP avisa "preapproval" (autorizada) e "payment" (o 1º débito): são ids diferentes
     const a = await processarAviso({ tipo: "preapproval", id: "pa-1" }, registrar);
     assertEquals(a.tratado, "ignorado", "autorizar não é dinheiro na conta");
-    assertEquals(pedidos.length, 0, "nem gasta chamada na API");
+    // desde o C3 o aviso de preapproval consulta a API (para ver se foi cancelado), mas não credita
+    assertEquals(pedidos.length, 1, "só a consulta do preapproval");
     assertEquals((await assinaturaDe(db, userId)).status, "trial");
 
     assertEquals(await processarAviso({ tipo: "payment", id: "5001" }, registrar), { tratado: "liberado", userId });
@@ -389,7 +399,7 @@ Deno.test("cobrança: assinatura boa, mas a API diz outra coisa do que o corpo d
   // o corpo (que só o atacante escreve) fala "approved"; a API do MP fala outra coisa
   for (const status of ["pending", "rejected", "cancelled", "refunded"]) {
     await comMP(respostaDoPagamento(userId, 97.9, status), async () => {
-      const r = await receberAviso({ tipo: "payment", id: "9002", assinatura, requestId: "req-1" }, registrar);
+      const r = await receberAviso({ tipo: "payment", id: "9002", assinatura, requestId: "req-1" }, registrar, await depsWebhookSobrePg(db));
       assertEquals(r.status, 200);
       assertEquals(r.corpo.tratado, "ignorado", `status ${status} na API não libera`);
     });
@@ -721,7 +731,8 @@ Deno.test("pagamento aprovado mas em outra moeda ou com devolução não libera"
     ] as [string, Record<string, unknown>][]
   ) {
     await comMP(respostaDoPagamento(userId, 97.9, "approved", extra), async () => {
-      assertEquals((await processarAviso({ tipo: "payment", id: "9100" }, registrar)).tratado, "ignorado", nome);
+      // pagamento devolvido que nunca creditamos: o estorno não acha o que revogar (C3)
+      assertEquals((await processarAviso({ tipo: "payment", id: "9100" }, registrar, await depsWebhookSobrePg(db))).tratado, "ignorado", nome);
     });
   }
   assertEquals(await pagamentosDe(db, userId), []);

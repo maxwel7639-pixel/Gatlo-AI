@@ -51,6 +51,11 @@ async function postgrest(db: PGlite, p: Request, s: Servidores): Promise<Respons
     );
     return json(r.rows[0].r);
   }
+  if (rpc === "estornar_pagamento") {
+    const a = await p.clone().json();
+    const r = await db.query<{ r: string }>(`select public.estornar_pagamento($1::text, $2::text) as r`, [a.p_gateway, a.p_gateway_pagamento_id]);
+    return json(r.rows[0].r);
+  }
   if (rpc === "guardar_preapproval") {
     const a = await p.clone().json();
     const r = await db.query<{ r: boolean }>(`select public.guardar_preapproval($1::uuid, $2::text, $3::int) as r`, [
@@ -236,7 +241,8 @@ Deno.test("rota: tipo payment credita; preapproval e tipo desconhecido só dão 
       assertEquals(r.status, 200, tipo);
       assertEquals((await r.json()).tratado, "ignorado", tipo);
     }
-    assertEquals(doMP(s).length, 0, "preapproval não gasta consulta");
+    // desde o C3 o preapproval consulta a API (para ver se foi cancelado): 1 consulta por tipo de preapproval
+    assertEquals(doMP(s).length, 2, "preapproval só consulta, não credita");
     assertEquals(await statusDe(db, userId), "trial", "autorizar não libera");
 
     // sem tipo no corpo: o `type` da URL e o `topic` antigo do MP valem
