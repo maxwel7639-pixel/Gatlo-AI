@@ -4,14 +4,12 @@ import { basePainel } from "@/lib/painel";
 import { PRODUTO } from "@/lib/config";
 import { usaSupabase } from "@/lib/env";
 import { desconectarInstagram } from "@/lib/acoes";
-import { emReais, regras } from "@/lib/regras";
+import { regras } from "@/lib/regras";
 import { dataCurta, numero } from "@/lib/formato";
 import { Aviso, Avatar, Cartao, Selo, classeBotao } from "@/components/ui";
 import { CabecalhoPagina, ConectarInstagram } from "@/components/painel/blocos";
 import { ExcluirConta } from "@/components/painel/excluir-conta";
-import { AssinarCartao } from "@/components/painel/assinar-cartao";
-import { AssinarPix } from "@/components/painel/assinar-pix";
-import { CancelarAssinatura } from "@/components/painel/cancelar-assinatura";
+import { Assinatura } from "@/components/painel/assinatura";
 import { IconeCheck, IconeInstagram } from "@/components/icones";
 
 export const metadata: Metadata = { title: "Conta" };
@@ -106,62 +104,13 @@ export default async function Conta({
         {/* ------------------------------------------------ assinatura */}
         <section>
           <h2 className="mb-3 text-lg font-bold">Assinatura</h2>
-          <Cartao className="p-5 sm:p-6">
-            {situacao ? (
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold">
-                      {situacao.status === "trial"
-                        ? "Teste grátis"
-                        : situacao.status === "ativa"
-                          ? "Assinatura ativa"
-                          : situacao.status === "cancelada"
-                            ? "Assinatura cancelada"
-                            : situacao.status === "estornado"
-                              ? "Pagamento estornado"
-                              : "Teste ou assinatura vencida"}
-                    </p>
-                    {situacao.liberada ? <Selo cor="verde">Robô liberado</Selo> : <Selo cor="amarelo">Robô pausado</Selo>}
-                  </div>
-                  <p className="mt-1 text-sm text-suave">
-                    {situacao.status === "trial" && situacao.liberada
-                      ? `Vai até ${dataCurta(situacao.trialAte)} (${situacao.diasRestantes === 1 ? "falta 1 dia" : `faltam ${situacao.diasRestantes} dias`}). Sem cartão: no fim, a automação pausa até tu assinar.`
-                      : situacao.periodoAte && situacao.liberada
-                        ? `Paga até ${dataCurta(situacao.periodoAte)}.`
-                        : "As automações não mandam DM até tu assinar."}
-                  </p>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-2xl font-bold">{emReais(r.precoMensalCentavos)}</p>
-                  <p className="text-xs text-suave">por mês · cartão ou Pix Automático</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-suave">Não achei a tua assinatura. Fala com o suporte.</p>
-            )}
-            {/* Sem assinatura no banco, ou já ativa, não abre checkout: o clique criaria cobrança sem dono certo ou dobrada. */}
-            {situacao && situacao.status !== "ativa" ? (
-              usaSupabase ? (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                  <AssinarCartao preco={emReais(r.precoMensalCentavos)} />
-                  <AssinarPix preco={emReais(r.precoMensalCentavos)} />
-                </div>
-              ) : (
-                <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">Assinatura só no app de verdade.</p>
-              )
-            ) : null}
-            {/* Só o clique pede ao gateway; o status muda quando ele avisa. */}
-            {situacao?.status === "ativa" && usaSupabase ? <CancelarAssinatura /> : null}
-            {q.assinatura === "iniciada" && situacao && situacao.status !== "ativa" ? (
-              <div className="mt-3">
-                <Aviso tipo="info">
-                  Se tu concluiu o pagamento no Mercado Pago, a assinatura ativa sozinha em alguns minutos. Recarrega
-                  esta página pra conferir.
-                </Aviso>
-              </div>
-            ) : null}
-          </Cartao>
+          <Assinatura
+            situacao={situacao}
+            precoCentavos={r.precoMensalCentavos}
+            carenciaDias={r.carenciaDias}
+            gateway={usaSupabase}
+            iniciada={q.assinatura === "iniciada"}
+          />
         </section>
 
         {/* ------------------------------------------------ dados */}

@@ -12,7 +12,7 @@ const inicial: EstadoAssinatura = {};
  * houver. Quem decide quando mostrar (assinatura ainda não ativa, fora da
  * demonstração) é a página, que põe este bloco ao lado do Pix.
  */
-export function AssinarCartao({ preco }: { preco: string }) {
+export function AssinarCartao({ preco, deNovo = false }: { preco: string; deNovo?: boolean }) {
   const [estado, acao, enviando] = useActionState(assinarCartao, inicial);
 
   return (
@@ -22,7 +22,7 @@ export function AssinarCartao({ preco }: { preco: string }) {
       </p>
       <div>
         <button type="submit" disabled={enviando} className={classeBotao("primario", "sm")}>
-          {enviando ? "Abrindo o checkout…" : "Assinar com cartão"}
+          {enviando ? "Abrindo o checkout…" : deNovo ? "Assinar de novo no cartão" : "Assinar com cartão"}
         </button>
         {estado.erro ? <div className="mt-3"><Aviso tipo="erro">{estado.erro}</Aviso></div> : null}
       </div>

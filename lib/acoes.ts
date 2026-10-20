@@ -255,12 +255,12 @@ export async function cancelarAssinatura(): Promise<EstadoCancelamento> {
     if (r === "nada") return { erro: "Não achei assinatura pra cancelar." };
     if (r === "ja_cancelado") {
       revalidatePath("/painel/conta");
-      return { ok: "Essa assinatura já estava cancelada no gateway, então já atualizamos aqui. Teu acesso segue até o fim do período pago." };
+      return { ok: "Essa cobrança já estava cancelada no gateway, então já atualizamos aqui. Recarrega a página pra ver a situação." };
     }
   } catch (e) {
     console.error("[cancelarAssinatura]", e instanceof Error ? e.message : e);
     return { erro: "Não deu pra cancelar agora. Tenta de novo em instantes." };
   }
   revalidatePath("/painel/conta");
-  return { ok: "Pedido de cancelamento enviado. Quando o gateway confirmar, a assinatura aparece como cancelada aqui (pode levar alguns minutos). Teu acesso segue até o fim do período pago." };
+  return { ok: "Pedido de cancelamento enviado. Quando o gateway confirmar, a cobrança para (pode levar alguns minutos). Recarrega a página pra ver a situação." };
 }

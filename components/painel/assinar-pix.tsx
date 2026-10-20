@@ -12,7 +12,7 @@ const inicial: EstadoPix = {};
  * QR Code do 1º pagamento, que também autoriza o débito dos meses seguintes. Este
  * bloco não libera nada: o robô só liga quando o Asaas confirma o pagamento.
  */
-export function AssinarPix({ preco }: { preco: string }) {
+export function AssinarPix({ preco, deNovo = false }: { preco: string; deNovo?: boolean }) {
   const [estado, acao, enviando] = useActionState(assinarPix, inicial);
   const [copiado, setCopiado] = useState(false);
 
@@ -80,7 +80,7 @@ export function AssinarPix({ preco }: { preco: string }) {
       </div>
       <div>
         <button type="submit" disabled={enviando} className={classeBotao("primario", "sm")}>
-          {enviando ? "Gerando o Pix…" : "Assinar no Pix Automático"}
+          {enviando ? "Gerando o Pix…" : deNovo ? "Assinar de novo no Pix" : "Assinar no Pix Automático"}
         </button>
         {estado.erro ? <div className="mt-3"><Aviso tipo="erro">{estado.erro}</Aviso></div> : null}
       </div>
