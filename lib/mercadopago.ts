@@ -19,6 +19,23 @@ function token(): string {
   return t;
 }
 
+/** Erro da API com o código HTTP, para quem chama distinguir "não existe" (404) de "fora do ar". */
+export class ErroMP extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+/** Devolve null quando o MP diz que não existe (404); qualquer outro erro continua erro. */
+export async function ouNaoExisteMP<T>(p: Promise<T>): Promise<T | null> {
+  try {
+    return await p;
+  } catch (e) {
+    if (e instanceof ErroMP && e.status === 404) return null;
+    throw e;
+  }
+}
+
 async function mp<T>(caminho: string, init?: RequestInit & { idempotencia?: string }): Promise<T> {
   const { idempotencia, ...resto } = init ?? {};
 
@@ -36,7 +53,7 @@ async function mp<T>(caminho: string, init?: RequestInit & { idempotencia?: stri
   const corpo = await r.json().catch(() => ({}));
   if (!r.ok) {
     const motivo = (corpo as { message?: string }).message ?? r.status;
-    throw new Error(`Mercado Pago ${caminho} respondeu ${r.status}: ${motivo}`);
+    throw new ErroMP(`Mercado Pago ${caminho} respondeu ${r.status}: ${motivo}`, r.status);
   }
   return corpo as T;
 }

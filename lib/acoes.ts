@@ -15,7 +15,7 @@ import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
 import { abrirCheckoutDoServidor } from "./mp-checkout-servidor";
 import { abrirAutorizacaoDoServidor } from "./asaas-servidor";
-import { cancelarDoUsuario, cancelarEApagar } from "./cancelar-servidor";
+import { cancelarEApagar, cancelarPeloBotao } from "./cancelar-servidor";
 
 /**
  * As ações do painel. TODA ação começa com exigirUsuario(): o id do usuário
@@ -251,8 +251,12 @@ export async function cancelarAssinatura(): Promise<EstadoCancelamento> {
     return { erro: "Muitas tentativas numa hora. Espera um pouco e tenta de novo." };
   }
   try {
-    const r = await cancelarDoUsuario(usuario.id);
+    const r = await cancelarPeloBotao(usuario.id);
     if (r === "nada") return { erro: "Não achei assinatura pra cancelar." };
+    if (r === "ja_cancelado") {
+      revalidatePath("/painel/conta");
+      return { ok: "Essa assinatura já estava cancelada no gateway, então já atualizamos aqui. Teu acesso segue até o fim do período pago." };
+    }
   } catch (e) {
     console.error("[cancelarAssinatura]", e instanceof Error ? e.message : e);
     return { erro: "Não deu pra cancelar agora. Tenta de novo em instantes." };
