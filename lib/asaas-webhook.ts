@@ -1,6 +1,6 @@
 import { consultarAutorizacao, consultarCliente, consultarCobranca, ouNaoExiste } from "./asaas";
 import { lerReferencia } from "./mercadopago";
-import type { Registrar } from "./mp-webhook";
+import type { Estornar, Marcar, Registrar } from "./mp-webhook";
 
 /**
  * O NÚCLEO DO WEBHOOK DO ASAAS, sem rota e sem banco no meio (a rota é fina:
@@ -27,7 +27,12 @@ import type { Registrar } from "./mp-webhook";
 export const CABECALHO_TOKEN = "asaas-access-token";
 
 const EVENTOS_DE_CREDITO = new Set(["PAYMENT_RECEIVED", "PAYMENT_CONFIRMED"]);
+// Estorno: o evento é só a pista; quem decide é o status/devoluções da cobrança na API.
+const EVENTOS_DE_ESTORNO = new Set(["PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED", "PAYMENT_CHARGEBACK_REQUESTED"]);
+const STATUS_DEVOLVIDO = new Set(["REFUNDED", "CHARGEBACK_REQUESTED", "CHARGEBACK_DISPUTE", "AWAITING_CHARGEBACK_REVERSAL"]);
+const EVENTOS_DE_AUTORIZACAO = new Set(["PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED", "PIX_AUTOMATIC_RECURRING_AUTHORIZATION_REFUSED"]);
 const ID_COBRANCA = /^pay_[A-Za-z0-9]+$/;
+const ID_AUTORIZACAO = /^[A-Za-z0-9_-]{1,64}$/;
 
 async function sha256(texto: string): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto)));
@@ -53,16 +58,23 @@ export type DepsAsaas = {
   registrar: Registrar;
   /** A autorização que guardamos para o usuário (gravada ao abrir o Pix Automático). */
   autorizacaoGuardada: (userId: string) => Promise<{ gateway: string | null; id: string | null } | null>;
+  /** Estorno e cancelamento (migration 0007). Quem testa só um pedaço pode omitir; o que faltar e for preciso LANÇA (rota 500). */
+  estornar?: Estornar;
+  marcar?: Marcar;
 };
 
 export type ResultadoAvisoAsaas =
   | { tratado: "liberado"; userId: string }
+  | { tratado: "estornado" }
+  | { tratado: "cancelada"; userId: string }
   | { tratado: "ignorado"; motivo: string };
 
 export async function processarAviso(
-  aviso: { evento: string | null; pagamentoId: string | null },
+  aviso: { evento: string | null; pagamentoId: string | null; autorizacaoId?: string | null },
   d: DepsAsaas,
 ): Promise<ResultadoAvisoAsaas> {
+  if (aviso.evento && EVENTOS_DE_AUTORIZACAO.has(aviso.evento)) return await cancelamento(aviso.autorizacaoId ?? null, d);
+  if (aviso.evento && EVENTOS_DE_ESTORNO.has(aviso.evento)) return await estorno(aviso.pagamentoId, d);
   if (!aviso.evento || !EVENTOS_DE_CREDITO.has(aviso.evento)) {
     return { tratado: "ignorado", motivo: `evento ${aviso.evento ?? "(vazio)"}` };
   }
@@ -127,12 +139,60 @@ export async function processarAviso(
 }
 
 /**
+ * Estorno de cobrança Pix: o corpo só aponta a cobrança; a API diz se ela foi
+ * mesmo devolvida (status de devolução ou lista de devoluções). Só revoga o que
+ * NÓS creditamos (o banco sabe: `estornar_pagamento`, idempotente).
+ */
+async function estorno(id: string | null, d: DepsAsaas): Promise<ResultadoAvisoAsaas> {
+  if (!id || !ID_COBRANCA.test(id)) return { tratado: "ignorado", motivo: "aviso sem id de cobrança" };
+  const p = await ouNaoExiste(consultarCobranca(id));
+  if (!p) return { tratado: "ignorado", motivo: "cobrança não existe no Asaas" };
+  if (!STATUS_DEVOLVIDO.has(p.status) && (p.refunds?.length ?? 0) === 0) {
+    return { tratado: "ignorado", motivo: "cobrança sem devolução" };
+  }
+  if (!d.estornar) throw new Error("webhook sem `estornar` configurado");
+  const e = await d.estornar({ gateway: "asaas", gatewayPagamentoId: String(p.id) });
+  if (e === "estornado") {
+    console.error(`[asaas-webhook] estorno: cobrança ${p.id} (${p.status}) revogou o período.`);
+    return { tratado: "estornado" };
+  }
+  return { tratado: "ignorado", motivo: e === "repetido" ? "estorno repetido" : "cobrança nunca creditada" };
+}
+
+/**
+ * Autorização do Pix Automático cancelada ou recusada. O corpo só aponta o id;
+ * a API diz o status e de quem é a autorização, e ela TEM que ser a guardada do
+ * dono (aviso de outra autorização nunca muda o status; o banco confere de novo).
+ */
+async function cancelamento(id: string | null, d: DepsAsaas): Promise<ResultadoAvisoAsaas> {
+  if (!id || !ID_AUTORIZACAO.test(id)) return { tratado: "ignorado", motivo: "aviso sem id de autorização" };
+  const a = await ouNaoExiste(consultarAutorizacao(id));
+  if (!a) return { tratado: "ignorado", motivo: "autorização não existe no Asaas" };
+  if (a.status !== "CANCELLED" && a.status !== "REFUSED") return { tratado: "ignorado", motivo: `autorização ${a.status}` };
+  if (!a.customerId) return { tratado: "ignorado", motivo: "autorização sem cliente" };
+
+  const cliente = await ouNaoExiste(consultarCliente(a.customerId));
+  const ref = lerReferencia(cliente?.externalReference);
+  if (!ref) return { tratado: "ignorado", motivo: "cliente sem referência de assinatura" };
+
+  const guardada = await d.autorizacaoGuardada(ref.userId);
+  if (guardada?.gateway !== "asaas" || guardada.id !== a.id) {
+    console.error(`[asaas-webhook] autorização ${a.id} ${a.status} não é a guardada do usuário ${ref.userId}: status mantido.`);
+    return { tratado: "ignorado", motivo: "autorização não é a guardada" };
+  }
+  if (!d.marcar) throw new Error("webhook sem `marcar` configurado");
+  const m = await d.marcar({ userId: ref.userId, gateway: "asaas", gatewayAssinaturaId: a.id });
+  if (m === "cancelada") return { tratado: "cancelada", userId: ref.userId };
+  return { tratado: "ignorado", motivo: `cancelamento ${m}` };
+}
+
+/**
  * A porta de entrada do aviso, sem Next no meio: 1º confere o token do cabeçalho,
  * 2º consulta a API do Asaas, 3º credita. Aviso sem token bom para no 1º passo:
  * não gasta chamada na API e não toca no banco.
  */
 export async function receberAviso(
-  aviso: { evento: string | null; pagamentoId: string | null; token: string | null },
+  aviso: { evento: string | null; pagamentoId: string | null; autorizacaoId?: string | null; token: string | null },
   d: DepsAsaas,
 ): Promise<{ status: 200 | 401 | 500; corpo: Record<string, string> }> {
   const conf = await tokenValido(aviso.token);
@@ -145,7 +205,7 @@ export async function receberAviso(
 
   try {
     const r = await processarAviso(aviso, d);
-    return { status: 200, corpo: r.tratado === "liberado" ? { tratado: "liberado" } : { tratado: "ignorado", motivo: r.motivo } };
+    return { status: 200, corpo: r.tratado === "ignorado" ? { tratado: "ignorado", motivo: r.motivo } : { tratado: r.tratado } };
   } catch (e) {
     return { status: 500, corpo: { erro: e instanceof Error ? e.message : "falha ao processar o aviso do Asaas" } };
   }

@@ -1,6 +1,6 @@
 import { CABECALHO_TOKEN, receberAviso } from "@/lib/asaas-webhook";
 import { autorizacaoGuardadaDoServidor } from "@/lib/asaas-servidor";
-import { registrarNoBanco } from "@/lib/registrar-pagamento";
+import { estornarNoBanco, marcarCanceladaNoBanco, registrarNoBanco } from "@/lib/registrar-pagamento";
 
 /**
  * Webhook do Asaas (Pix Automático).
@@ -18,15 +18,16 @@ import { registrarNoBanco } from "@/lib/registrar-pagamento";
  * de erro no log, porque o Asaas não reenvia).
  */
 export async function POST(request: Request) {
-  const corpo = await request.json().catch(() => null) as { event?: unknown; payment?: { id?: unknown } } | null;
+  const corpo = await request.json().catch(() => null) as { event?: unknown; payment?: { id?: unknown }; authorization?: { id?: unknown } } | null;
 
   const r = await receberAviso(
     {
       evento: typeof corpo?.event === "string" ? corpo.event : null,
       pagamentoId: typeof corpo?.payment?.id === "string" ? corpo.payment.id : null,
+      autorizacaoId: typeof corpo?.authorization?.id === "string" ? corpo.authorization.id : null,
       token: request.headers.get(CABECALHO_TOKEN),
     },
-    { registrar: registrarNoBanco, autorizacaoGuardada: autorizacaoGuardadaDoServidor },
+    { registrar: registrarNoBanco, autorizacaoGuardada: autorizacaoGuardadaDoServidor, estornar: estornarNoBanco, marcar: marcarCanceladaNoBanco },
   );
   if (r.status === 500) console.error("[asaas-webhook]", r.status, r.corpo.erro);
   return Response.json(r.corpo, { status: r.status });

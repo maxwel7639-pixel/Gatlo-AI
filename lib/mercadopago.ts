@@ -68,7 +68,7 @@ export type PagamentoMP = {
 };
 
 /** A assinatura (preapproval) como o MP devolve: pending, authorized, paused ou cancelled. */
-export type AssinaturaMP = { id: string; status: string; init_point: string | null };
+export type AssinaturaMP = { id: string; status: string; init_point: string | null; external_reference?: string | null };
 
 /**
  * Cria a assinatura recorrente e devolve o id dela e o endereço do checkout do MP.
@@ -115,4 +115,16 @@ export async function consultarAssinatura(id: string): Promise<AssinaturaMP> {
 
 export async function consultarPagamento(id: string): Promise<PagamentoMP> {
   return await mp<PagamentoMP>(`/v1/payments/${encodeURIComponent(id)}`);
+}
+
+/**
+ * Cancela o preapproval no MP (PUT /preapproval/{id} com status "cancelled").
+ * NÃO mexe no nosso banco: o status só muda quando o aviso do MP chega e a API
+ * confirma (lib/mp-webhook.ts).
+ */
+export async function cancelarAssinaturaMP(id: string): Promise<AssinaturaMP> {
+  return await mp<AssinaturaMP>(`/preapproval/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify({ status: "cancelled" }),
+  });
 }

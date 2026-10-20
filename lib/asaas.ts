@@ -166,3 +166,13 @@ export async function consultarCobranca(id: string): Promise<CobrancaAsaas> {
 export async function consultarCliente(id: string): Promise<ClienteAsaas> {
   return await asaas<ClienteAsaas>(`/customers/${encodeURIComponent(id)}`);
 }
+
+/** Cancela a autorização (DELETE /pix/automatic/authorizations/{id}). Não mexe no nosso banco. */
+export async function cancelarAutorizacao(id: string): Promise<void> {
+  await asaas(`/pix/automatic/authorizations/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+/** Remove a assinatura (DELETE /subscriptions/{id}): cancelar a autorização não garante que o Asaas pare de gerar cobrança. */
+export async function removerAssinaturaAsaas(id: string): Promise<void> {
+  await asaas(`/subscriptions/${encodeURIComponent(id)}`, { method: "DELETE" });
+}

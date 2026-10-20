@@ -1,4 +1,4 @@
-import { consultarPagamento, lerReferencia } from "./mercadopago";
+import { consultarAssinatura, consultarPagamento, lerReferencia } from "./mercadopago";
 import { assinaturaValida } from "./mp-assinatura";
 
 /**
@@ -29,36 +29,74 @@ export type RegistroPagamento = {
 export type ResultadoRegistro = "liberado" | "repetido" | "valor_divergente" | "preapproval_divergente" | "sem_usuario";
 export type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
 
+/** O que o banco respondeu a `estornar_pagamento` (migration 0007). */
+export type ResultadoEstorno = "estornado" | "repetido" | "desconhecido";
+export type Estornar = (e: { gateway: "mercadopago" | "asaas"; gatewayPagamentoId: string }) => Promise<ResultadoEstorno>;
+
+/** O que o banco respondeu a `marcar_assinatura` (migration 0007). */
+export type ResultadoMarcar = "cancelada" | "repetida" | "nao_guardada" | "sem_efeito" | "sem_usuario";
+export type Marcar = (m: { userId: string; gateway: "mercadopago" | "asaas"; gatewayAssinaturaId: string }) => Promise<ResultadoMarcar>;
+
+/** Quem testa só um pedaço pode omitir; o que faltar e for preciso LANÇA (rota 500, o gateway reenvia: falha fechada). */
+export type DepsMP = { estornar?: Estornar; marcar?: Marcar };
+
 export type ResultadoAviso =
   | { tratado: "liberado"; userId: string }
+  | { tratado: "estornado" }
+  | { tratado: "cancelada"; userId: string }
   | { tratado: "ignorado"; motivo: string }
   | { tratado: "erro"; motivo: string };
 
 export async function processarAviso(
   aviso: { tipo: string | null; id: string | null },
   registrar: Registrar,
+  d: DepsMP = {},
 ): Promise<ResultadoAviso> {
   const tipo = aviso.tipo ?? "";
   const id = aviso.id;
   if (!id) return { tratado: "ignorado", motivo: "aviso sem id" };
 
   try {
-    if (tipo === "preapproval") {
+    if (tipo === "preapproval" || tipo === "subscription_preapproval") {
       // Assinatura autorizada NÃO é dinheiro na conta: quem credita é o pagamento
       // (tipo "payment", com o id dele). Creditar aqui também empurraria o 1º mês
       // duas vezes, porque o id do preapproval e o do pagamento são diferentes e
-      // o `registrar_pagamento` só barra id repetido.
-      return { tratado: "ignorado", motivo: "assinatura: o crédito vem do pagamento" };
+      // o `registrar_pagamento` só barra id repetido. O que este aviso muda é o
+      // CANCELAMENTO, e só depois de a API do MP confirmar que o preapproval está
+      // cancelado (o corpo do aviso não vale nada).
+      const pa = await consultarAssinatura(id);
+      if (pa.status !== "cancelled") return { tratado: "ignorado", motivo: "assinatura: o crédito vem do pagamento" };
+      const ref = lerReferencia(pa.external_reference);
+      if (!ref) return { tratado: "ignorado", motivo: "sem referência de assinatura" };
+      if (!d.marcar) throw new Error("webhook sem `marcar` configurado");
+      const m = await d.marcar({ userId: ref.userId, gateway: "mercadopago", gatewayAssinaturaId: String(pa.id ?? id) });
+      if (m === "cancelada") return { tratado: "cancelada", userId: ref.userId };
+      if (m === "nao_guardada") {
+        console.error(`[mercadopago-webhook] preapproval ${id} cancelado não é o guardado do usuário ${ref.userId}: status mantido.`);
+      }
+      return { tratado: "ignorado", motivo: `cancelamento ${m}` };
     }
 
     if (tipo === "payment") {
       // A cobrança de dentro da assinatura (a 1ª e as mensais), com o id dela.
       const p = await consultarPagamento(id);
+      // Estorno e chargeback: a API é que diz. Devolução parcial também conta (é a
+      // mesma regra do crédito, que recusa pagamento com devolução).
+      const devolvido = p.status === "refunded" || p.status === "charged_back" ||
+        (p.status === "approved" && (p.transaction_amount_refunded ?? 0) > 0);
+      if (devolvido) {
+        if (!d.estornar) throw new Error("webhook sem `estornar` configurado");
+        const e = await d.estornar({ gateway: "mercadopago", gatewayPagamentoId: String(p.id) });
+        if (e === "estornado") {
+          console.error(`[mercadopago-webhook] estorno: pagamento ${p.id} (${p.status}) revogou o período.`);
+          return { tratado: "estornado" };
+        }
+        // nunca creditamos esse pagamento (ou já revogamos): não há o que tirar
+        return { tratado: "ignorado", motivo: e === "repetido" ? "estorno repetido" : "pagamento com devolução" };
+      }
       if (p.status !== "approved") return { tratado: "ignorado", motivo: `pagamento ${p.status}` };
-      // Aprovado não basta: tem que ser em reais e sem devolução. (Estorno depois
-      // do crédito e chargeback são do C3: revogar o período.)
+      // Aprovado não basta: tem que ser em reais.
       if (p.currency_id !== "BRL") return { tratado: "ignorado", motivo: `moeda ${p.currency_id ?? "(vazia)"}` };
-      if ((p.transaction_amount_refunded ?? 0) > 0) return { tratado: "ignorado", motivo: "pagamento com devolução" };
       return await creditar(p.external_reference, p.transaction_amount, String(p.id), p.preapproval_id, registrar);
     }
 
@@ -79,6 +117,7 @@ export async function processarAviso(
 export async function receberAviso(
   aviso: { tipo: string | null; id: string | null; assinatura: string | null; requestId: string | null },
   registrar: Registrar,
+  d: DepsMP = {},
 ): Promise<{ status: 200 | 401 | 500; corpo: Record<string, string> }> {
   const conf = await assinaturaValida(aviso.assinatura, aviso.requestId, aviso.id);
   if (!conf.valida) {
@@ -88,9 +127,9 @@ export async function receberAviso(
     return { status: 401, corpo: { erro: "não autorizado" } };
   }
 
-  const r = await processarAviso(aviso, registrar);
+  const r = await processarAviso(aviso, registrar, d);
   if (r.tratado === "erro") return { status: 500, corpo: { erro: r.motivo } };
-  return { status: 200, corpo: r.tratado === "liberado" ? { tratado: "liberado" } : { tratado: "ignorado", motivo: r.motivo } };
+  return { status: 200, corpo: r.tratado === "ignorado" ? { tratado: "ignorado", motivo: r.motivo } : { tratado: r.tratado } };
 }
 
 async function creditar(

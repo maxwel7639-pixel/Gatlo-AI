@@ -1,5 +1,5 @@
 import { receberAviso } from "@/lib/mp-webhook";
-import { registrarNoBanco } from "@/lib/registrar-pagamento";
+import { estornarNoBanco, marcarCanceladaNoBanco, registrarNoBanco } from "@/lib/registrar-pagamento";
 
 /**
  * Webhook do Mercado Pago (cartão / assinatura recorrente).
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
     { tipo, id, assinatura: request.headers.get("x-signature"), requestId: request.headers.get("x-request-id") },
     // erro do banco lança e vira 500 (lib/registrar-pagamento.ts): o MP reenvia
     registrarNoBanco,
+    { estornar: estornarNoBanco, marcar: marcarCanceladaNoBanco },
   );
   if (r.status === 500) console.error("[mercadopago-webhook]", r.status, r.corpo.erro);
   return Response.json(r.corpo, { status: r.status });
