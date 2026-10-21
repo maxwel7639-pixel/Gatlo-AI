@@ -4,7 +4,7 @@ import { criarPostgres, criarUsuario } from "./pg.ts";
 
 /**
  * CANCELAR E ESTORNAR (C3), com Mercado Pago e Asaas SIMULADOS no `fetch` e o
- * Supabase (PostgREST) falso em cima do PGlite com as migrations 0001..0007, ou
+ * Supabase (PostgREST) falso em cima do PGlite com as migrations 0001..0008, ou
  * seja, `marcar_assinatura`, `estornar_pagamento` e `registrar_pagamento` de
  * verdade. Os webhooks são os `POST` exportados das rotas, com `Request` real.
  * Nenhuma rede, nenhuma credencial (as chaves abaixo são falsas).
@@ -630,6 +630,107 @@ Deno.test("estorno (Asaas): se o cancelamento no Asaas falha, a rota dá 500 e o
     assertEquals((await situacaoDe(db, userId)).liberada, false);
   });
 });
+
+/* ---- achado A do R2 (migration 0008): o estorno cancela a assinatura DO PAGAMENTO, não a atual */
+
+type CenarioAntiga = {
+  userId: string;
+  /** pagamento da assinatura antiga (a 1ª, já cancelada) e da atual (a 2ª, em dia) */
+  antigo: string;
+  atual: string;
+  /** estorno total desse pagamento, com a API dizendo "devolvido" */
+  estornar: (id: string) => Promise<Response>;
+  /** o que o gateway recebe quando a assinatura ATUAL é cancelada */
+  cancelaAtual: string[];
+};
+
+/** Assina (pa-1), paga, cancela, assina de novo (pa-2) e paga: dois meses, a assinatura atual é a pa-2. */
+async function mpComAssinaturaAntiga(db: PGlite, g: Gateways): Promise<CenarioAntiga> {
+  const userId = await usuarioPagoNoCartao(db, g);
+  g.preapprovals.get("pa-1")!.status = "cancelled";
+  await comServidores(db, g, async () => assertEquals((await (await avisoMP("subscription_preapproval", "pa-1")).json()).tratado, "cancelada"));
+  await db.query(`select public.guardar_preapproval($1::uuid, 'pa-2', 9790)`, [userId]);
+  g.preapproval("pa-2", userId);
+  g.pagamentoMP("1002", userId, { preapproval_id: "pa-2" });
+  await comServidores(db, g, async () => assertEquals((await (await avisoMP("payment", "1002")).json()).tratado, "liberado"));
+  assertEquals(await situacaoDe(db, userId), { status: "ativa", liberada: true });
+  return {
+    userId, antigo: "1001", atual: "1002", cancelaAtual: ["mp PUT pa-2 cancelled"],
+    estornar: (id) => { g.pagamentoMP(id, userId, { status: "refunded", preapproval_id: id === "1001" ? "pa-1" : "pa-2" }); return avisoMP("payment", id); },
+  };
+}
+
+/** O mesmo no Pix: aut-1 paga e cancelada, aut-2 guardada e paga. */
+async function asaasComAssinaturaAntiga(db: PGlite, g: Gateways): Promise<CenarioAntiga> {
+  const userId = await usuarioPagoNoPix(db, g);
+  g.autorizacoes.get("aut-1")!.status = "CANCELLED";
+  await comServidores(db, g, async () =>
+    assertEquals((await (await avisoAsaas(eventoAut("PIX_AUTOMATIC_RECURRING_AUTHORIZATION_CANCELLED", "aut-1"))).json()).tratado, "cancelada"));
+  await db.query(`select public.guardar_autorizacao_asaas($1::uuid, 'cus_1', 'aut-2', 9790)`, [userId]);
+  g.asaas(userId, { autorizacao: "aut-2" });
+  g.cobranca("pay_2");
+  await comServidores(db, g, async () => assertEquals((await (await avisoAsaas(eventoPag("PAYMENT_RECEIVED", "pay_2"))).json()).tratado, "liberado"));
+  assertEquals(await situacaoDe(db, userId), { status: "ativa", liberada: true });
+  return {
+    userId, antigo: "pay_1", atual: "pay_2", cancelaAtual: ["asaas DELETE autorizacao aut-2", "asaas DELETE assinatura sub_1"],
+    estornar: (id) => { g.cobranca(id, { status: "REFUNDED" }); return avisoAsaas(eventoPag("PAYMENT_REFUNDED", id)); },
+  };
+}
+
+for (const [nome, montar] of [["MP", mpComAssinaturaAntiga], ["Asaas", asaasComAssinaturaAntiga]] as const) {
+  Deno.test(`estorno (${nome}): pagamento da assinatura ATUAL cancela a atual`, async () => {
+    const db = await criarPostgres();
+    const g = new Gateways();
+    const c = await montar(db, g);
+    await comServidores(db, g, async () => {
+      const r = await c.estornar(c.atual);
+      assertEquals([r.status, (await r.json()).tratado], [200, "estornado"]);
+      assertEquals(g.mutacoes, c.cancelaAtual);
+      assertEquals(Object.fromEntries((await pagamentosDe(db, c.userId)).map((x) => [x.gateway_pagamento_id, x.status])), { [c.antigo]: "aprovado", [c.atual]: "estornado" });
+    });
+  });
+
+  Deno.test(`estorno (${nome}): pagamento de assinatura ANTIGA tira o mês, NÃO cancela a nova e solta o ALERTA; o reenvio não tira outro mês`, async () => {
+    const db = await criarPostgres();
+    const g = new Gateways();
+    const c = await montar(db, g);
+    await comServidores(db, g, async () => {
+      const antes = await assinaturaDe(db, c.userId);
+      const { resultado: r, erros } = await capturandoErros(() => c.estornar(c.antigo));
+      assertEquals([r.status, (await r.json()).tratado], [200, "estornado"]);
+      assertEquals(g.mutacoes, [], "a assinatura nova não foi cancelada no gateway");
+      assert(erros.some((e) => e.includes("ALERTA estorno_de_assinatura_antiga")), "o alerta saiu");
+      const depois = await assinaturaDe(db, c.userId);
+      assertEquals(depois.status, "ativa");
+      assertEquals(depois.gateway_assinatura_id, antes.gateway_assinatura_id);
+      const mes = await db.query<{ ok: boolean }>(`select $1::timestamptz - interval '1 month' = $2::timestamptz as ok`, [antes.periodo_ate, depois.periodo_ate]);
+      assert(mes.rows[0].ok, "tirou exatamente 1 mês");
+      assertEquals(await situacaoDe(db, c.userId), { status: "ativa", liberada: true });
+
+      // reenvio: continua não cancelando e não tira o 2º mês
+      const { resultado: r2 } = await capturandoErros(() => c.estornar(c.antigo));
+      assertEquals((await r2.json()).motivo, "estorno repetido");
+      assertEquals((await assinaturaDe(db, c.userId)).periodo_ate, depois.periodo_ate);
+      assertEquals(g.mutacoes, []);
+    });
+  });
+
+  Deno.test(`estorno (${nome}): pagamento sem gateway_assinatura_id (linha antiga) cancela a atual, como na 0007; o reenvio não tira 2 meses`, async () => {
+    const db = await criarPostgres();
+    const g = new Gateways();
+    const c = await montar(db, g);
+    await db.query(`update public.pagamentos set gateway_assinatura_id = null where gateway_pagamento_id = $1`, [c.antigo]);
+    await comServidores(db, g, async () => {
+      const { resultado: r, erros } = await capturandoErros(() => c.estornar(c.antigo));
+      assertEquals([r.status, (await r.json()).tratado], [200, "estornado"]);
+      assertEquals(g.mutacoes, c.cancelaAtual);
+      assert(!erros.some((e) => e.includes("estorno_de_assinatura_antiga")));
+      const periodo = (await assinaturaDe(db, c.userId)).periodo_ate;
+      assertEquals((await (await c.estornar(c.antigo)).json()).motivo, "estorno repetido");
+      assertEquals((await assinaturaDe(db, c.userId)).periodo_ate, periodo);
+    });
+  });
+}
 
 Deno.test("estorno: depois de estornado, um pagamento novo volta a liberar", async () => {
   const db = await criarPostgres();

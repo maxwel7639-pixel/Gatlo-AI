@@ -163,14 +163,17 @@ async function estorno(id: string | null, d: DepsAsaas): Promise<ResultadoAvisoA
   const e = await d.estornar({ gateway: "asaas", gatewayPagamentoId: String(p.id) });
   if (e === "desconhecido") return { tratado: "ignorado", motivo: "cobrança nunca creditada" };
 
-  // `estornado` ou `repetido`: cancela a assinatura guardada (no reenvio depois de falha tenta de novo; falhar = 500).
+  // `estornado` ou `repetido`: cancela a assinatura guardada (no reenvio depois de falha tenta de novo; falhar = 500),
+  // a menos que a cobrança seja de uma autorização antiga: aí a atual está em dia e fica.
   // O dono vem do cliente que NÓS criamos, lido da API.
   const cliente = p.customer ? await ouNaoExiste(consultarCliente(p.customer)) : null;
   const ref = lerReferencia(cliente?.externalReference);
-  if (ref) await d.cancelar(ref.userId);
+  const antiga = e.endsWith("_antiga");
+  if (antiga) console.error(`[asaas-webhook] ALERTA estorno_de_assinatura_antiga: cobrança ${p.id} é de uma autorização que não é a guardada do usuário ${ref?.userId ?? "(sem dono)"}; o mês foi tirado e a assinatura atual NÃO foi cancelada. Conferir no Asaas.`);
+  else if (ref) await d.cancelar(ref.userId);
   else console.error(`[asaas-webhook] ALERTA estorno_sem_dono: cobrança ${p.id} estornada sem referência de usuário; cancelar a autorização no Asaas à mão.`);
-  if (e === "repetido") return { tratado: "ignorado", motivo: "estorno repetido" };
-  console.error(`[asaas-webhook] estorno: cobrança ${p.id} (${p.status}) revogou o período e cancelou a assinatura.`);
+  if (e.startsWith("repetido")) return { tratado: "ignorado", motivo: "estorno repetido" };
+  console.error(`[asaas-webhook] estorno: cobrança ${p.id} (${p.status}) revogou o período${antiga ? "." : " e cancelou a assinatura."}`);
   return { tratado: "estornado" };
 }
 

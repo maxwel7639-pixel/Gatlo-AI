@@ -29,8 +29,12 @@ export type RegistroPagamento = {
 export type ResultadoRegistro = "liberado" | "repetido" | "valor_divergente" | "preapproval_divergente" | "sem_usuario";
 export type Registrar = (r: RegistroPagamento) => Promise<ResultadoRegistro>;
 
-/** O que o banco respondeu a `estornar_pagamento` (migration 0007). */
-export type ResultadoEstorno = "estornado" | "repetido" | "desconhecido";
+/**
+ * O que o banco respondeu a `estornar_pagamento` (migrations 0007 e 0008). `_antiga`:
+ * o pagamento é de uma assinatura que não é mais a guardada do usuário; o mês é
+ * tirado do mesmo jeito, mas a assinatura atual (em dia) não pode ser cancelada.
+ */
+export type ResultadoEstorno = "estornado" | "repetido" | "desconhecido" | "estornado_antiga" | "repetido_antiga";
 export type Estornar = (e: { gateway: "mercadopago" | "asaas"; gatewayPagamentoId: string }) => Promise<ResultadoEstorno>;
 
 /** O que o banco respondeu a `marcar_assinatura` (migration 0007). */
@@ -100,12 +104,15 @@ export async function processarAviso(
         const e = await d.estornar({ gateway: "mercadopago", gatewayPagamentoId: String(p.id) });
         // nunca creditamos esse pagamento: não há o que tirar nem o que cancelar
         if (e === "desconhecido") return { tratado: "ignorado", motivo: "pagamento com devolução" };
-        // `estornado` ou `repetido`: cancela a guardada (no reenvio depois de falha tenta de novo; falhar = 500)
+        // `estornado` ou `repetido`: cancela a guardada (no reenvio depois de falha tenta de novo; falhar = 500),
+        // a menos que o pagamento seja de uma assinatura antiga: aí a atual está em dia e fica.
         const ref = lerReferencia(p.external_reference);
-        if (ref) await d.cancelar(ref.userId);
+        const antiga = e.endsWith("_antiga");
+        if (antiga) console.error(`[mercadopago-webhook] ALERTA estorno_de_assinatura_antiga: pagamento ${p.id} é de uma assinatura que não é a guardada do usuário ${ref?.userId ?? "(sem dono)"}; o mês foi tirado e a assinatura atual NÃO foi cancelada. Conferir no MP.`);
+        else if (ref) await d.cancelar(ref.userId);
         else console.error(`[mercadopago-webhook] ALERTA estorno_sem_dono: pagamento ${p.id} estornado sem referência de usuário; cancelar a assinatura no MP à mão.`);
-        if (e === "repetido") return { tratado: "ignorado", motivo: "estorno repetido" };
-        console.error(`[mercadopago-webhook] estorno: pagamento ${p.id} (${p.status}) revogou o período e cancelou a assinatura.`);
+        if (e.startsWith("repetido")) return { tratado: "ignorado", motivo: "estorno repetido" };
+        console.error(`[mercadopago-webhook] estorno: pagamento ${p.id} (${p.status}) revogou o período${antiga ? "." : " e cancelou a assinatura."}`);
         return { tratado: "estornado" };
       }
       if (p.status !== "approved") return { tratado: "ignorado", motivo: `pagamento ${p.status}` };

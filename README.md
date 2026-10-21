@@ -109,8 +109,8 @@ docs/PLANO.md
 
 ## Ligando o Supabase (quando o projeto existir)
 
-1. Criar um projeto **novo** (região São Paulo) e rodar `supabase/migrations/0001_esquema.sql` no SQL
-   Editor (ou `supabase db push`). Rodar as duas consultas de conferência do fim do arquivo.
+1. Criar um projeto **novo** (região São Paulo) e rodar `supabase/migrations/0001` a `0008`, **em ordem**, no SQL
+   Editor (ou `supabase db push`). Rodar as consultas de conferência do fim de cada arquivo.
 2. Preencher `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY`.
 3. **Authentication → Providers → Email**: confirmação de e-mail ligada, senha mínima 8, proteção de senha
    vazada ligada. **URL Configuration**: Site URL = `NEXT_PUBLIC_SITE_URL`.

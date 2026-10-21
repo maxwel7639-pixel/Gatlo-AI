@@ -24,7 +24,7 @@ export async function registrarNoBanco(p: RegistroPagamento): Promise<ResultadoR
   throw new Error(`registrar_pagamento devolveu algo inesperado: ${String(data)}`);
 }
 
-/** Estorno ou chargeback de um pagamento que creditamos (`estornar_pagamento`, migration 0007). Erro do banco lança: a rota responde 500 e o gateway reenvia. */
+/** Estorno ou chargeback de um pagamento que creditamos (`estornar_pagamento`, migrations 0007 e 0008). Erro do banco lança: a rota responde 500 e o gateway reenvia. */
 export async function estornarNoBanco(e: Parameters<Estornar>[0]): Promise<ResultadoEstorno> {
   if (!usaSupabase) throw new Error("estornar_pagamento: sem Supabase configurado");
   const { data, error } = await createAdminClient().rpc("estornar_pagamento", {
@@ -32,7 +32,7 @@ export async function estornarNoBanco(e: Parameters<Estornar>[0]): Promise<Resul
     p_gateway_pagamento_id: e.gatewayPagamentoId,
   });
   if (error) throw new Error(`estornar_pagamento: ${error.message}`);
-  if (data === "estornado" || data === "repetido" || data === "desconhecido") return data;
+  if (data === "estornado" || data === "repetido" || data === "desconhecido" || data === "estornado_antiga" || data === "repetido_antiga") return data;
   throw new Error(`estornar_pagamento devolveu algo inesperado: ${String(data)}`);
 }
 
