@@ -1,0 +1,1243 @@
+/*
+  Landing do Gatlo AI (24/10/2026). Referência: o site do Clientaê (faixa que reage à rolagem,
+  palavra gigante no rodapé, celular parado que troca de cena, borda que acende com o mouse).
+  Cores e fonte são as da identidade MX (globals.css); aqui só entra o que é desta página.
+  Com "reduzir movimento" (fim do arquivo), nada anda: tudo nasce no estado final.
+*/
+
+/* =================================================================== a seção da história */
+
+.secao {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip; /* as palavras gigantes passam da tela; clip não vira contêiner de rolagem */
+  background: radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--azul) 22%, transparent), transparent 70%);
+}
+
+/* ---------- As palavras que as pessoas comentam, gigantes e apagadas, atrás do hero ---------- */
+
+.palavras {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: -1;
+  height: 100svh;
+  min-height: 560px;
+  display: grid;
+  align-content: center;
+  gap: 0.06em;
+  font-size: clamp(56px, 11vw, 168px);
+  pointer-events: none;
+  user-select: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+.palavrasLinha {
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  color: color-mix(in srgb, var(--texto) 5%, transparent);
+  /* anda só com a rolagem (--rolagem vem do JS); parada, fica no --inicio */
+  transform: translate3d(calc(var(--inicio) + var(--rolagem, 0) * var(--vel) * 1px), 0, 0);
+  will-change: transform;
+}
+
+.palavrasLinha span {
+  padding-right: 0.45em;
+}
+
+/* a fileira do meio é só contorno: dá profundidade entre as duas cheias */
+.palavrasContorno {
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--texto) 11%, transparent);
+}
+
+/* =================================================================== palco: texto | celular */
+
+.palco {
+  --topo: 64px; /* altura do cabeçalho fixo */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-cena: 520ms;
+  --alt-celular: 612px;
+  --zoom: 0.6; /* o celular encolhe no telefone; o tamanho de verdade está em .celular */
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline: 16px;
+}
+
+/* No telefone: hero em cima; depois o celular fica parado no topo e os passos passam por baixo
+   dele (a mesma linha do grid, uma por cima da outra). */
+.hero {
+  grid-row: 1;
+  grid-column: 1;
+  padding: 40px 0 36px;
+}
+
+.lado {
+  grid-row: 2;
+  grid-column: 1;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.passosCaixa {
+  grid-row: 2;
+  grid-column: 1;
+  z-index: 1;
+  padding-top: calc(var(--alt-celular) * var(--zoom) + 64px);
+  padding-bottom: 72px;
+}
+
+.fixo {
+  position: sticky;
+  top: var(--topo);
+  display: flex;
+  justify-content: center;
+  margin-inline: -16px;
+  padding: 12px 16px 24px;
+  /* faixa de fundo: o texto que sobe some por baixo dela, sem atravessar o celular */
+  background: linear-gradient(to bottom, var(--fundo) calc(100% - 24px), transparent);
+}
+
+/* no telefone o hero ocupa a tela toda: as palavras de fundo ficam mais apagadas atrás do botão */
+@media (max-width: 1023px) {
+  .palavrasLinha {
+    color: color-mix(in srgb, var(--texto) 3.5%, transparent);
+  }
+  .palavrasContorno {
+    color: transparent;
+    -webkit-text-stroke-color: color-mix(in srgb, var(--texto) 8%, transparent);
+  }
+}
+
+@media (max-width: 1023px) and (min-height: 760px) {
+  .palco {
+    --zoom: 0.66;
+  }
+}
+
+@media (max-width: 1023px) and (min-height: 880px) {
+  .palco {
+    --zoom: 0.72;
+  }
+}
+
+@media (max-width: 1023px) and (max-height: 640px) {
+  .palco {
+    --zoom: 0.5;
+  }
+}
+
+@media (min-width: 640px) {
+  .palco {
+    padding-inline: 24px;
+  }
+  .fixo {
+    margin-inline: -24px;
+  }
+}
+
+/* No computador: texto à esquerda, celular parado no meio da tela à direita. */
+@media (min-width: 1024px) {
+  .palco {
+    --zoom: 1;
+    max-width: 72rem;
+    margin-inline: auto;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    column-gap: 64px;
+  }
+  .hero {
+    min-height: calc(100svh - var(--topo));
+    display: flex;
+    align-items: center;
+    padding: 48px 0;
+  }
+  .lado {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+  .passosCaixa {
+    grid-column: 1;
+    padding-top: 0;
+    padding-bottom: 120px;
+  }
+  .fixo {
+    top: calc((100svh - var(--topo) - var(--alt-celular) * var(--zoom)) / 2 + var(--topo));
+    margin-inline: 0;
+    padding: 0;
+    background: none;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 780px) {
+  .palco {
+    --zoom: 0.84;
+  }
+}
+
+/* =================================================================== os passos */
+
+.passos {
+  position: relative;
+  padding-left: 56px;
+}
+
+/* a linha que enche com a rolagem (--progresso vem do JS) */
+.trilho {
+  position: absolute;
+  left: 17px;
+  top: 18px;
+  bottom: 0;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--borda-forte);
+}
+
+.trilhoEnche {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(to bottom, var(--azul-claro), var(--azul));
+  transform-origin: top;
+  transform: scaleY(var(--progresso, 0));
+}
+
+.passo {
+  position: relative;
+  min-height: 55svh;
+  padding-bottom: 32px;
+}
+
+@media (min-width: 1024px) {
+  .passo {
+    min-height: 70svh;
+  }
+  .passo:last-child {
+    min-height: 85svh;
+  }
+}
+
+.numero {
+  position: absolute;
+  left: -56px;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--borda-forte);
+  background: var(--fundo);
+  color: var(--suave);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 300ms var(--ease),
+    border-color 300ms var(--ease),
+    color 300ms var(--ease),
+    box-shadow 300ms var(--ease),
+    transform 300ms var(--ease);
+}
+
+.passo[data-estado="feito"] .numero {
+  border-color: color-mix(in srgb, var(--azul-claro) 55%, transparent);
+  color: var(--azul-claro);
+}
+
+.passo[data-estado="agora"] .numero {
+  border-color: var(--azul);
+  background: var(--azul);
+  color: #fff;
+  transform: scale(1.08);
+  box-shadow:
+    0 0 0 6px color-mix(in srgb, var(--azul) 18%, transparent),
+    0 0 30px -4px color-mix(in srgb, var(--azul) 85%, transparent);
+}
+
+/* o passo apagado se apaga pela cor (o texto continua acima de 4,5:1), nunca pela opacidade */
+.passoTitulo {
+  padding-top: 2px;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--suave);
+  transition: color 300ms var(--ease);
+}
+
+.passo[data-estado="agora"] .passoTitulo,
+.passo[data-estado="feito"] .passoTitulo {
+  color: var(--texto);
+}
+
+.passoTexto {
+  margin-top: 12px;
+  max-width: 46ch;
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--suave);
+}
+
+@media (min-width: 1024px) {
+  .passoTitulo {
+    font-size: 1.875rem;
+  }
+}
+
+.legenda {
+  padding-left: 56px;
+  font-size: 0.8125rem;
+  color: var(--suave);
+}
+
+/* =================================================================== o celular */
+
+.celular {
+  zoom: var(--zoom);
+  width: 300px;
+  height: var(--alt-celular);
+  padding: 10px;
+  border-radius: 46px;
+  border: 1px solid var(--borda-forte);
+  background: linear-gradient(160deg, #141a24, #05070a 45%);
+  box-shadow:
+    0 50px 100px -40px color-mix(in srgb, var(--azul) 60%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.tela {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 36px;
+  background: #0b0e13;
+  color: var(--texto);
+  font-size: 12.5px;
+  line-height: 1.38;
+}
+
+.tela b {
+  font-weight: 650;
+}
+
+.barraStatus {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  padding: 0 24px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ilha {
+  width: 84px;
+  height: 22px;
+  border-radius: 999px;
+  background: #000;
+}
+
+.bateria {
+  width: 22px;
+  height: 10px;
+  border-radius: 3px;
+  border: 1.5px solid rgb(232 237 245 / 0.75);
+  background: linear-gradient(90deg, rgb(232 237 245 / 0.75) 70%, transparent 70%) content-box;
+  padding: 1px;
+}
+
+.cenas {
+  position: absolute;
+  inset: 34px 0 0 0;
+}
+
+/* As três telas ficam uma do lado da outra: a de agora no lugar, a próxima entra pela direita. */
+.cena {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0b0e13;
+  transition:
+    transform var(--dur-cena) var(--ease),
+    opacity var(--dur-cena) var(--ease);
+}
+
+.cena[data-pos="antes"] {
+  transform: translateX(-30%);
+  opacity: 0;
+}
+
+.cena[data-pos="depois"] {
+  transform: translateX(100%);
+}
+
+/* ---------- Tela 1: o post ---------- */
+
+.igTopo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 8px;
+}
+
+.igMais {
+  margin-left: auto;
+  color: var(--suave);
+  letter-spacing: 1px;
+}
+
+.igFoto {
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--superficie-3);
+}
+
+.igAcoes {
+  display: flex;
+  gap: 13px;
+  padding: 9px 12px 7px;
+}
+
+.igSalvar {
+  margin-left: auto;
+}
+
+.igTexto {
+  display: grid;
+  gap: 3px;
+  padding: 0 12px 4px;
+}
+
+.igMeta {
+  color: var(--apagado);
+  font-size: 10.5px;
+}
+
+.avatarAna {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f58529, #dd2a7b 60%, #8134af);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.avatarOutra {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.comentario {
+  display: flex;
+  gap: 8px;
+  padding: 6px 12px;
+  animation: chega 450ms var(--ease) both;
+}
+
+/* o comentário que acabou de chegar brilha um instante */
+.comentarioNovo {
+  animation:
+    chega 450ms var(--ease) both,
+    realce 1.8s ease 100ms both;
+}
+
+.comentarioResposta {
+  padding-left: 46px;
+}
+
+.seloGatlo {
+  display: inline-flex;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--azul) 24%, transparent);
+  color: var(--azul-claro);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+/* a notificação do Instagram desce, fica um pouco e sobe */
+.notificacao {
+  position: absolute;
+  z-index: 4;
+  left: 8px;
+  right: 8px;
+  top: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgb(38 42 51 / 0.94);
+  box-shadow: 0 14px 30px -12px #000;
+  font-size: 11.5px;
+  animation: notifica 3.4s var(--ease) both;
+}
+
+/* ---------- Tela 2: o direct ---------- */
+
+.dmTopo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+}
+
+.dmTopo small {
+  display: block;
+  color: var(--apagado);
+  font-size: 10.5px;
+}
+
+.dmFio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 12px;
+  overflow: hidden;
+}
+
+.dmContexto {
+  display: grid;
+  align-self: center;
+  margin-bottom: 8px;
+  text-align: center;
+  color: var(--apagado);
+  font-size: 10.5px;
+}
+
+.dmContexto span {
+  color: var(--suave);
+}
+
+.balaoMeu {
+  align-self: flex-end;
+  max-width: 82%;
+  overflow: hidden;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--azul);
+  color: #fff;
+  animation: chegaDireita 450ms var(--ease) both;
+}
+
+.balaoMeu p {
+  padding: 9px 12px;
+}
+
+.balaoBotao {
+  display: block;
+  padding: 8px 12px;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.14);
+  text-align: center;
+  font-weight: 700;
+}
+
+/* "Enviando…" e "Enviado" ocupam o mesmo lugar: um some quando o outro chega */
+.dmStatus {
+  display: grid;
+  align-self: flex-end;
+  color: var(--suave);
+  font-size: 10.5px;
+}
+
+.dmStatus > * {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: end;
+}
+
+.enviando {
+  animation: sumir 0s linear 1.2s forwards;
+}
+
+.enviado {
+  opacity: 0;
+  animation: aparecer 300ms ease 1.2s forwards;
+}
+
+.visto {
+  animation: aparecer 300ms ease both;
+}
+
+/* "digitando…" e a resposta dela também dividem o lugar */
+.respostaDela {
+  display: grid;
+  margin-top: 10px;
+}
+
+.respostaDela > * {
+  grid-area: 1 / 1;
+}
+
+.digitando {
+  justify-self: start;
+  display: flex;
+  gap: 4px;
+  margin-left: 32px;
+  padding: 11px 12px;
+  border-radius: 18px;
+  background: #262a33;
+  opacity: 0;
+  animation:
+    aparecer 250ms ease 500ms forwards,
+    sumir 0s linear 1.9s forwards;
+}
+
+.digitando span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--suave);
+  animation: pula 1s ease-in-out infinite;
+}
+
+.digitando span:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.digitando span:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+.balaoDela {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  opacity: 0;
+  animation: chegaEsquerda 400ms var(--ease) 1.95s forwards;
+}
+
+.balaoDela p {
+  max-width: 78%;
+  padding: 9px 12px;
+  border-radius: 18px 18px 18px 6px;
+  background: #262a33;
+}
+
+.dmCampo {
+  margin: 0 10px 14px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  color: var(--apagado);
+}
+
+/* ---------- Tela 3: o painel do Gatlo AI ---------- */
+
+.gTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 14px 12px;
+}
+
+.gTopoRotulo {
+  color: var(--suave);
+  font-size: 11px;
+}
+
+.gCartao {
+  margin: 0 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+}
+
+.gLinhaTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gPalavra {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--azul) 22%, transparent);
+  color: var(--azul-claro);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.gAtiva {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--verde);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gAtiva i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--verde);
+  box-shadow: 0 0 10px var(--verde);
+}
+
+.gSub {
+  margin-top: 6px;
+  color: var(--suave);
+  font-size: 11px;
+}
+
+.gNumeros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 12px 0;
+}
+
+.gNumero {
+  padding: 10px 11px;
+  border-radius: 14px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+}
+
+.gNumero small {
+  display: block;
+  color: var(--suave);
+  font-size: 10.5px;
+}
+
+.gNumero b {
+  display: block;
+  margin-top: 2px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gNumero[data-destaque] {
+  border-color: color-mix(in srgb, var(--azul) 55%, transparent);
+  background: color-mix(in srgb, var(--azul) 12%, var(--superficie));
+}
+
+.gLista {
+  margin: 12px 12px 0;
+}
+
+.gPessoa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  animation: chega 450ms var(--ease) both;
+}
+
+.gPessoa small {
+  display: block;
+  color: var(--suave);
+  font-size: 10.5px;
+}
+
+.gClicou {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--verde) 16%, transparent);
+  color: var(--verde);
+  font-size: 10.5px;
+  font-weight: 700;
+  animation: pulso 1.2s ease 400ms 2;
+}
+
+.gFila {
+  display: grid;
+  gap: 10px;
+  margin: 14px 12px 0;
+}
+
+.gBarra {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--superficie-3);
+}
+
+.gBarra span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--azul), var(--azul-claro));
+  transform-origin: left;
+  transition: transform 200ms linear;
+}
+
+.gPausa,
+.gRetomou,
+.gNormal {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  animation: chega 300ms var(--ease) both;
+}
+
+.gPausa {
+  border: 1px solid color-mix(in srgb, var(--amarelo) 32%, transparent);
+  background: color-mix(in srgb, var(--amarelo) 10%, transparent);
+  color: var(--amarelo);
+}
+
+.gRetomou {
+  border: 1px solid color-mix(in srgb, var(--verde) 30%, transparent);
+  background: color-mix(in srgb, var(--verde) 10%, transparent);
+  color: var(--verde);
+}
+
+.gNormal {
+  border: 1px solid var(--borda);
+  color: var(--suave);
+}
+
+/* =================================================================== a faixa com as funções */
+
+.faixa {
+  --altura-fita: 72px;
+  --sobra: 80px; /* quanto a fita passa de cada lado, pra a inclinação não mostrar ponta */
+  position: relative;
+  z-index: 2;
+  overflow-x: clip;
+  padding-block: 28px;
+}
+
+.faixaLuz {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 50%;
+  height: 180px;
+  transform: translateY(-50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 34%, transparent), transparent);
+  pointer-events: none;
+}
+
+.fita {
+  position: relative;
+  width: calc(100% + 2 * var(--sobra));
+  margin-left: calc(-1 * var(--sobra));
+  transform: rotate(-2deg);
+  border-block: 1px solid color-mix(in srgb, var(--azul-claro) 20%, transparent);
+  background:
+    linear-gradient(180deg, rgb(232 237 245 / 0.07), rgb(232 237 245 / 0.02)),
+    rgb(13 17 23 / 0.72);
+  box-shadow:
+    inset 0 1px 0 rgb(232 237 245 / 0.08),
+    0 30px 60px -30px rgb(0 0 0 / 0.8);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* fio de luz na borda de cima, mais forte no meio */
+.fita::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--azul-claro) 50%, transparent);
+  pointer-events: none;
+}
+
+.janela {
+  overflow: hidden;
+  --fim: calc(100% - var(--sobra) - 72px);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent var(--sobra),
+    #000 calc(var(--sobra) + 48px),
+    #000 calc(var(--fim) - 64px),
+    transparent var(--fim)
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent var(--sobra),
+    #000 calc(var(--sobra) + 48px),
+    #000 calc(var(--fim) - 64px),
+    transparent var(--fim)
+  );
+}
+
+.trilhoFita {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.grupo {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--altura-fita);
+  padding: 0 28px;
+  white-space: nowrap;
+}
+
+.item::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 1px;
+  height: 24px;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--azul-claro) 20%, transparent);
+}
+
+.itemIcone {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--azul-claro) 28%, transparent);
+  background: color-mix(in srgb, var(--azul) 16%, transparent);
+  color: var(--azul-claro);
+}
+
+.itemNome {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.itemTexto {
+  color: var(--suave);
+  font-size: 14px;
+}
+
+@media (max-width: 639px) {
+  .itemTexto {
+    display: none;
+  }
+  .item {
+    padding: 0 20px;
+  }
+}
+
+.pausa {
+  position: absolute;
+  right: calc(var(--sobra) + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--azul-claro) 25%, transparent);
+  background: rgb(13 17 23 / 0.9);
+  color: var(--texto);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.pausa:hover {
+  border-color: var(--azul-claro);
+}
+
+/* =================================================================== marca d'água das seções */
+
+.comMarca {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+}
+
+.marca {
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -22%);
+  font-size: clamp(88px, 17vw, 240px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--texto) 9%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* =================================================================== cartões com borda de luz */
+
+.cartaoLuz {
+  position: relative;
+  border-radius: 24px;
+  border: 1px solid var(--borda);
+  background:
+    linear-gradient(160deg, rgb(232 237 245 / 0.04), transparent 45%),
+    var(--superficie);
+}
+
+/* O elemento precisa de data-luz (o LuzDoCursor escreve --lx/--ly). A borda é um anel de 1px
+   recortado por máscara: só a moldura acende, nunca o texto de dentro. */
+.cartaoLuz::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    280px circle at var(--lx, 50%) var(--ly, 0%),
+    color-mix(in srgb, var(--azul-claro) 75%, transparent),
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+
+.cartaoLuz[data-luz-ativa]::after {
+  opacity: 1;
+}
+
+/* o cartão do preço leva o azul de canto (o CSS do módulo ganha das classes do Tailwind) */
+.cartaoPreco {
+  border-color: color-mix(in srgb, var(--azul) 32%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--azul) 22%, var(--superficie)), var(--superficie) 55%);
+}
+
+/* =================================================================== a palavra gigante do fim */
+
+.gigante {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  padding-top: 16px;
+}
+
+.gigante > p {
+  grid-area: 1 / 1;
+  margin-bottom: -0.3em; /* a metade de baixo fica fora: o fim da página corta as letras */
+  font-size: clamp(5rem, 21vw, 19rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  text-align: center;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  user-select: none;
+  pointer-events: none;
+}
+
+.giganteApagado {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--texto) 15%, transparent), transparent 82%);
+}
+
+/* acende em azul onde o mouse passa, com a mesma luz dos cartões */
+.giganteAceso {
+  background-image: linear-gradient(180deg, var(--azul-claro), color-mix(in srgb, var(--azul) 35%, transparent) 85%);
+  -webkit-mask-image: radial-gradient(circle 240px at var(--lx, -999px) var(--ly, -999px), #000, transparent);
+  mask-image: radial-gradient(circle 240px at var(--lx, -999px) var(--ly, -999px), #000, transparent);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.gigante[data-luz-ativa] .giganteAceso {
+  opacity: 1;
+}
+
+/* =================================================================== animações */
+
+@keyframes chega {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes chegaDireita {
+  from {
+    opacity: 0;
+    transform: translate(10px, 6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chegaEsquerda {
+  from {
+    opacity: 0;
+    transform: translate(-10px, 6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes realce {
+  from {
+    background: color-mix(in srgb, var(--azul) 26%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sumir {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes pula {
+  0%,
+  60%,
+  100% {
+    transform: none;
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes pulso {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--verde) 18%, transparent);
+  }
+}
+
+@keyframes notifica {
+  0% {
+    transform: translateY(-160%);
+  }
+  12%,
+  84% {
+    transform: none;
+  }
+  100% {
+    transform: translateY(-160%);
+  }
+}
+
+/* =================================================================== sem movimento */
+
+@media (prefers-reduced-motion: reduce) {
+  .cena,
+  .numero,
+  .passoTitulo,
+  .gBarra span {
+    transition: none;
+  }
+  .comentario,
+  .comentarioNovo,
+  .balaoMeu,
+  .visto,
+  .gPessoa,
+  .gClicou,
+  .gPausa,
+  .gRetomou,
+  .gNormal,
+  .digitando span {
+    animation: none;
+  }
+  /* a sequência do direct já nasce no fim: "Enviado" e a resposta dela */
+  .enviando,
+  .digitando,
+  .notificacao {
+    display: none;
+  }
+  .enviado,
+  .balaoDela {
+    opacity: 1;
+    animation: none;
+  }
+  /* a faixa deita e mostra as funções todas, paradas */
+  .fita {
+    width: 100%;
+    margin-left: 0;
+    transform: none;
+  }
+  .janela {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .trilhoFita {
+    width: auto;
+    justify-content: center;
+  }
+  .grupo {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 16px;
+  }
+  .grupo + .grupo,
+  .pausa,
+  .item::after {
+    display: none;
+  }
+  .item {
+    height: auto;
+    min-height: 56px;
+    white-space: normal;
+  }
+}
