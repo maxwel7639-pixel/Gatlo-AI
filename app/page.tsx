@@ -1,19 +1,20 @@
 import type { Viewport } from "next";
 import { PRODUTO } from "@/lib/config";
 import { REGRAS_DEMONSTRACAO, emReais, regras, type Regras } from "@/lib/regras";
-import { Rodape } from "@/components/publico";
+import Link from "next/link";
 import { BotaoLink } from "@/components/ui";
 import { IconeCheck, IconeLink, IconeSeta, IconeX } from "@/components/icones";
-import { Historia } from "@/components/landing/historia";
 import { FaixaFuncoes } from "@/components/landing/faixa-funcoes";
 import { PalavrasFundo } from "@/components/landing/palavras-fundo";
 import { LuzDoCursor } from "@/components/landing/luz-do-cursor";
 import { CabecalhoVidro } from "@/components/landing/cabecalho-vidro";
-import { HeroBolhas } from "@/components/landing/hero-bolhas";
+import { HeroConversa, HistoriaProduto, Exemplos } from "@/components/marketing/conversa-demo";
+import { CasosDeUso, ComoComecar, Perguntas, RodapeSite } from "@/components/marketing/secoes";
 import { FaixaProva } from "@/components/landing/faixa-prova";
 import { AntesDepois } from "@/components/landing/antes-depois";
 import { Revela } from "@/components/landing/revela";
 import s from "@/components/landing/landing.module.css";
+import m from "@/components/marketing/marketing.module.css";
 
 // O preço vem da tabela `regras` do banco; a página se refaz a cada hora.
 export const revalidate = 3600;
@@ -29,9 +30,6 @@ async function regrasParaVitrine(): Promise<Regras> {
     return REGRAS_DEMONSTRACAO;
   }
 }
-
-/** 180 → "3 h"; 45 → "45 min" */
-const tempo = (min: number) => (min >= 60 && min % 60 === 0 ? `${min / 60} h` : `${min} min`);
 
 const FAZ = [
   "Manda o teu link no direct de quem comentou a palavra, uma vez por comentário.",
@@ -56,30 +54,32 @@ export default async function Inicio() {
 
   return (
     // .pagina: o tema claro da landing (as outras páginas seguem escuras)
-    <div className={`${s.pagina} flex flex-1 flex-col`}>
+    <div className={`${s.pagina} ${m.pagina} flex flex-1 flex-col`}>
       <LuzDoCursor />
       <CabecalhoVidro testeDias={r.testeDias} />
       <main className="flex-1">
         {/* ---------------------------------------------------- topo: título + a conversa em loop */}
-        <section className={s.secao} data-luz>
+        <section className={m.hero} data-luz>
           <PalavrasFundo />
-          <div className={s.heroGrid}>
-            <div>
-              <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-                Quem comentar a palavra recebe o teu link na DM.
+          <div className={`${m.container} ${m.heroGrade}`}>
+            <div className={m.heroTexto}>
+              <p className={m.sobreTitulo}>{PRODUTO.nome} / Automação para Instagram</p>
+              <h1>
+                Comentou.<br />Recebeu.<br />A conversa começou.
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-suave">
                 Tu escolhe o post, a palavra e a mensagem. O {PRODUTO.nome} manda o link no direct de quem
                 comentou, sozinho, numa fila que respeita o limite do Instagram.
               </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className={m.heroAcoes}>
                 <BotaoLink href="/cadastro" tamanho="lg">
                   Teste {r.testeDias} dias grátis
                 </BotaoLink>
-                <p className="text-sm text-suave">Sem cartão no teste. Depois, {preco} por mês.</p>
+                <Link href="/produto/instagram" className={m.linkTexto}>Conhecer a Gatlo<IconeSeta className="size-5" /></Link>
               </div>
+              <small className={m.heroNota}>Sem cartão no teste. Depois, {preco} por mês.</small>
             </div>
-            <HeroBolhas />
+            <HeroConversa />
           </div>
         </section>
 
@@ -87,22 +87,7 @@ export default async function Inicio() {
         <FaixaProva />
 
         {/* ---------------------------------------------------- a história em capítulos */}
-        <Revela className="mx-auto max-w-3xl px-4 pt-24 pb-14 text-center sm:px-6">
-          <h2 id="cap-titulo" className="scroll-mt-24 text-3xl font-extrabold tracking-tight sm:text-5xl">
-            Do comentário ao clique, sozinho
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-suave">
-            Rola e vê o caminho que cada comentário faz, do post até o link aberto.
-          </p>
-          <IconeSeta className="mx-auto mt-6 size-5 rotate-90 text-azul-claro" />
-        </Revela>
-        <Historia
-          porHora={porHora}
-          janelaDias={r.janelaRespostaPrivadaDias}
-          respostasMax={r.respostasPublicasMax24h}
-          pausa={tempo(r.envioPausaDirectMin)}
-          testeDias={r.testeDias}
-        />
+        <HistoriaProduto />
 
         {/* ---------------------------------------------------- antes e depois */}
         <section id="antes-depois" aria-labelledby="ad-titulo" className="scroll-mt-16">
@@ -115,6 +100,10 @@ export default async function Inicio() {
 
         {/* ---------------------------------------------------- faixa com as funções */}
         <FaixaFuncoes porHora={porHora} testeDias={r.testeDias} />
+
+        <Exemplos />
+        <CasosDeUso />
+        <ComoComecar />
 
         {/* ---------------------------------------------------- faz / não faz */}
         <section id="limites" className={`${s.comMarca} mx-auto max-w-6xl scroll-mt-28 px-4 pt-28 pb-20 sm:px-6`}>
@@ -194,13 +183,9 @@ export default async function Inicio() {
             à API de mensagens da Meta.
           </p>
         </section>
+        <Perguntas />
       </main>
-      <Rodape />
-      {/* o nome, gigante e cortado no fim da página: acende em azul onde o mouse passa */}
-      <div className={s.gigante} data-luz aria-hidden="true">
-        <p className={s.giganteApagado}>{PRODUTO.nome}</p>
-        <p className={s.giganteAceso}>{PRODUTO.nome}</p>
-      </div>
+      <RodapeSite />
     </div>
   );
 }

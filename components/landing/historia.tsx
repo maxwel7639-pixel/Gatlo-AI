@@ -163,7 +163,7 @@ export function Historia({
 
 const ANA = "ana.luiza.rs";
 const PERFIL = "feed.criativo";
-const POST = "/landing/post-10-ideias.png";
+const POST = "/landing/ideias.svg";
 // as outras duas pessoas que comentaram antes (somam 3 com a Ana)
 const OUTRAS = [
   { nome: "bia.doces.poa", quando: "há 2 min", cor: "linear-gradient(135deg, #34d399, #0e7490)" },

@@ -1,0 +1,305 @@
+.container { width: min(1320px, calc(100% - 80px)); margin-inline: auto; }
+.pagina { overflow: clip; }
+.pagina :is(a,button,summary) { -webkit-tap-highlight-color: transparent; }
+.pagina button, .pagina summary { cursor: pointer; }
+.pagina :focus-visible { outline: 3px solid #1e50f0; outline-offset: 5px; }
+.sobreTitulo { font-size: 13px; font-weight: 650; letter-spacing: .06em; margin-bottom: 22px !important; }
+.botao, .botaoEscuro, .botaoClaro { min-height: 52px; padding: 14px 25px; display: inline-flex; align-items: center; justify-content: center; gap: 16px; border-radius: 999px; font-size: 15px; font-weight: 650; text-decoration: none; transition: background 200ms, transform 200ms; }
+.botao { color: #fff; background: #1e50f0; }
+.botao:hover { background: #163cc1; }
+.botaoEscuro { color: #fff; background: #0b1020; }
+.botaoEscuro:hover { background: #26334e; }
+.botaoClaro { color: #0b1020; background: #fff; }
+.botaoClaro:hover { background: #d6f5df; }
+.linkTexto { display: inline-flex; gap: 12px; align-items: center; min-height: 44px; font-weight: 650; text-underline-offset: 5px; }
+.linkTexto:hover { text-decoration: underline; }
+.hero { position: relative; padding: 150px 0 100px; }
+.heroGrade { display: grid; grid-template-columns: 1.12fr 1fr; gap: 60px; align-items: center; }
+.heroTexto h1 { font-size: clamp(64px, 6.6vw, 100px); font-weight: 780; line-height: .98; letter-spacing: -.065em; max-width: 850px; text-wrap: balance; }
+.heroTexto > p:not(.sobreTitulo) { margin-top: 30px; max-width: 540px; font-size: 20px; line-height: 1.55; color: #4a5466; }
+.heroAcoes { display: flex; flex-wrap: wrap; align-items: center; gap: 15px 28px; margin-top: 32px; }
+.heroNota { display: block; margin-top: 18px; color: #4a5466; font-size: 13px; }
+.heroAzul { color: white; background: #1e50f0; background-image: linear-gradient(#ffffff0a 1px,transparent 1px),linear-gradient(90deg,#ffffff0a 1px,transparent 1px); background-size: 180px 180px; }
+.heroAzul .heroTexto > p:not(.sobreTitulo), .heroAzul .heroNota { color: #eef2ff; }
+.heroAzul :focus-visible { outline-color: #d6f5df; }
+.heroAzul .heroConversa { color: #0b1020; }
+.heroConversa { min-height: 660px; position: relative; display: flex; justify-content: center; align-items: center; isolation: isolate; }
+.heroConversa > .telefone { transform: rotate(5deg); }
+.orbita { position: absolute; z-index: -1; width: 540px; height: 540px; border: 1px solid currentColor; opacity: .12; border-radius: 50%; }
+.orbita::after { content: ""; position: absolute; inset: -60px; border: inherit; border-radius: inherit; }
+.cartaoFlutuante, .cartaoEntrega { position: absolute; display: flex; align-items: center; gap: 12px; z-index: 2; padding: 19px 23px; border-radius: 14px; background: #f8f9fb; color: #0b1020; box-shadow: 0 18px 65px #0b102019; }
+.cartaoFlutuante { top: 90px; left: -4%; transform: rotate(-5deg); animation: flutua 6s ease-in-out infinite; }
+.cartaoEntrega { right: -2%; bottom: 94px; transform: rotate(-3deg); animation: flutua 6s ease-in-out -3s infinite; }
+.cartaoEntrega small { display: block; color: #4a5466; margin-top: 3px; }
+.entregaIcone { background: #d6f5df; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; }
+.seloDemo { position: absolute; bottom: 0; font-size: 12px; color: inherit; opacity: .7; }
+.heroAzul .seloDemo { color: #fff; opacity: .85; }
+@keyframes flutua { 50% { translate: 0 -9px; } }
+
+/* Uma ilustração responsiva, em HTML, compartilhada entre hero, história e exemplos. */
+.telefone { width: 302px; height: 578px; flex-shrink: 0; padding: 7px; border-radius: 43px; background: #181b23; border: 2px solid #555b66; color: #f8f9fb; box-shadow: 3px 4px 0 #07090c, 0 35px 75px -35px #0b102070; position: relative; font-size: 12px; line-height: 1.4; }
+.telefone::after { content: ""; position: absolute; right: -5px; top: 125px; width: 3px; height: 50px; border-radius: 2px; background: #424954; }
+.telefoneTela { height: 100%; overflow: hidden; border-radius: 34px; background: #07090c; position: relative; display: flex; flex-direction: column; }
+.statusBar { height: 36px; padding: 9px 20px 0; display: flex; justify-content: space-between; position: relative; align-items: flex-start; font-size: 10px; font-weight: 600; }
+.camera { position: absolute; left: 50%; transform: translateX(-50%); top: 8px; width: 76px; height: 19px; border-radius: 99px; background: #000; }
+.bateria { width: 18px; height: 8px; border: 1px solid #fff; border-radius: 2px; background: #ffffffb0; margin-top: 3px; }
+.appBar { display: flex; align-items: center; gap: 8px; padding: 9px 13px 12px; border-bottom: 1px solid #ffffff18; }
+.appBar b { font-size: 11px; font-weight: 650; }
+.appBar small { display: block; font-size: 9px; color: #bac1d0; }
+.avatar, .avatarAna { display: grid; place-items: center; border-radius: 50%; flex-shrink: 0; font-weight: 700; width: 30px; height: 30px; color: #172023; background: var(--caso, #d6f5df); }
+.avatarAna { width: 24px; height: 24px; font-size: 10px; background: #e4ddff; color: #3c2e61; }
+.telaConteudo { flex: 1; position: relative; min-height: 0; overflow: hidden; animation: aparece 280ms ease both; }
+@keyframes aparece { from { opacity: .3; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+.capaPost { width: 100%; height: 268px; object-fit: cover; object-position: center; }
+.postIcones { display: flex; gap: 11px; padding: 9px 12px 6px; }
+.postIcones svg { width: 18px; height: 18px; }
+.legendaPost { padding: 0 12px; color: #d6dbe6; font-size: 10px; line-height: 1.5; }
+.legendaPost b { color: #fff; }
+.comentario { display: flex; align-items: center; gap: 8px; margin: 13px 10px; padding: 11px 8px; border-radius: 12px; background: #1e2533; font-size: 10px; }
+.dataChat { text-align: center; color: #b6becb; font-size: 9px; margin-top: 18px !important; }
+.miniPost { display: flex; align-items: center; gap: 9px; padding: 8px; margin: 14px 13px; background: #1c232e; border-radius: 10px; font-size: 10px; color: #b8c2d0; }
+.miniPost img { border-radius: 4px; height: 45px; width: 36px; }
+.miniPost b { color: #fff; }
+.mensagem { background: #3654db; margin: 20px 13px 0 42px; padding: 15px 14px 7px; border-radius: 18px 18px 5px 18px; font-size: 12px; line-height: 1.5; }
+.linkMensagem { border-top: 1px solid #ffffff30; margin-top: 12px; padding: 10px 0; display: flex; gap: 10px; justify-content: center; align-items: center; font-weight: 600; }
+.enviado { display: flex; align-items: center; justify-content: flex-end; color: #b6becb; font-size: 9px; gap: 3px; margin: 6px 16px 0 !important; }
+.mensagemResposta { display: flex; align-items: flex-end; gap: 7px; margin: 20px 33px 0 12px; animation: aparece 300ms ease both; }
+.mensagemResposta p { padding: 12px; border-radius: 17px 17px 17px 4px; background: #252d3b; font-size: 11px; }
+.campoChat { position: absolute; inset: auto 12px 14px; padding: 11px 13px; border-radius: 30px; border: 1px solid #ffffff35; color: #b6becb; display: flex; justify-content: space-between; font-size: 11px; }
+.homeBar { height: 4px; width: 95px; margin: 6px auto 5px; border-radius: 99px; background: #fff; flex-shrink: 0; }
+.painelDemo { padding: 20px 14px; }
+.painelMarca { font-size: 21px; font-weight: 800; letter-spacing: -.05em; }
+.painelDemo > p { color: #c2c9d6; margin-top: 5px; font-size: 10px; }
+.automacaoDemo { margin-top: 23px; border: 1px solid #343e50; border-radius: 12px; padding: 13px; font-size: 9px; color: #bdeccc; }
+.automacaoDemo b { display: block; color: #fff; font-size: 17px; margin-top: 9px; }
+.automacaoDemo small { display: block; color: #c2c9d6; margin-top: 4px; }
+.dot { width: 5px; height: 5px; display: inline-block; border-radius: 50%; background: #bdeccc; margin-right: 5px; }
+.metricasDemo { margin-top: 13px; display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.metricasDemo > div { background: #151c28; border: 1px solid #343e50; border-radius: 11px; padding: 11px; }
+.metricasDemo small { color: #c2c9d6; font-size: 9px; display: block; }
+.metricasDemo b { display: block; font-size: 25px; line-height: 1.2; margin-top: 5px; font-weight: 700; }
+.metricasDemo [data-clique] { background: #d6f5df; border-color: #d6f5df; color: #17291c; }
+.metricasDemo [data-clique] small { color: #274632; }
+.cliqueDemo { margin-top: 13px; padding: 10px 8px; border-radius: 10px; background: #151c28; display: flex; gap: 7px; align-items: center; font-size: 9px; }
+.cliqueDemo small { display: block; color: #c2c9d6; font-size: 8px; }
+.cliqueDemo > svg { color: #bdeccc; flex-shrink: 0; margin-left: auto; }
+.notaPainel { margin-top: 15px !important; font-size: 9px !important; line-height: 1.55; }
+
+.faixa { overflow: hidden; background: #d6f5df; color: #183d24; padding: 23px 0; }
+.faixaTrilho { display: flex; width: max-content; animation: faixa 50s linear infinite; }
+.faixaTrilho > span { display: flex; align-items: center; gap: 50px; padding: 0 25px; }
+.faixaTrilho b { font-size: 23px; font-weight: 600; white-space: nowrap; letter-spacing: -.025em; }
+.faixaTrilho svg { width: 25px; height: 25px; flex-shrink: 0; }
+.faixa:hover .faixaTrilho, .faixa:focus-within .faixaTrilho { animation-play-state: paused; }
+@keyframes faixa { to { transform: translateX(-50%); } }
+
+.historia { height: 390svh; position: relative; background: #1e50f0; color: #fff; scroll-margin-top: 72px; }
+.historiaPalco { position: sticky; top: 72px; min-height: min(820px,calc(100svh - 72px)); height: calc(100svh - 72px); max-height: 1000px; width: min(1320px, calc(100% - 80px)); margin: auto; display: grid; grid-template-columns: 1.15fr 1fr; gap: 100px; align-items: center; }
+.historiaTexto h2 { font-size: clamp(40px,4.2vw,65px); font-weight: 730; letter-spacing: -.055em; line-height: 1.05; }
+.navegacaoEtapas { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 38px; }
+.navegacaoEtapas button { text-align: left; padding: 10px 0; border-top: 2px solid #ffffff40; color: #dbe5ff; }
+.navegacaoEtapas button[aria-current] { border-top-color: #d6f5df; color: #fff; }
+.navegacaoEtapas span { display: block; font-size: 12px; opacity: .8; }
+.navegacaoEtapas b { font-size: 13px; display: block; font-weight: 550; margin-top: 9px; }
+.textoEtapa { min-height: 162px; margin-top: 26px; }
+.textoEtapa h3 { font-size: 25px; font-weight: 650; letter-spacing: -.025em; }
+.textoEtapa p { font-size: 17px; color: #e5ebff; line-height: 1.6; max-width: 500px; margin-top: 12px; }
+.dicaScroll { color: #e5ebff; font-size: 12px; margin-top: 15px !important; }
+.historiaVisual { display: flex; align-items: center; flex-direction: column; justify-content: center; position: relative; isolation: isolate; }
+.numeroGigante { position: absolute; font-size: 440px; font-weight: 800; letter-spacing: -.09em; color: #ffffff14; top: 0; right: -30px; z-index: -1; line-height: 1; }
+.demoLegenda { font-size: 11px; margin-top: 21px !important; max-width: 300px; text-align: center; color: #e5ebff; }
+.historia :focus-visible { outline-color: #d6f5df; }
+.historia[data-reduz] { height: auto; }
+.historia[data-reduz] .historiaPalco { position: relative; padding-block: 70px; height: auto; }
+
+.exemplos { padding: 125px 0; scroll-margin-top: 80px; }
+.cabSecao { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; margin-bottom: 55px; }
+.cabSecao h2 { font-size: clamp(48px,5.4vw,80px); letter-spacing: -.06em; font-weight: 750; line-height: 1.04; }
+.cabSecao > p { color: #4a5466; font-size: 17px; line-height: 1.6; max-width: 380px; padding-bottom: 7px; }
+.exemploQuadro { display: grid; grid-template-columns: 1fr 340px .82fr; gap: 24px; align-items: center; padding: 40px; border-radius: 28px; background: var(--caso); transition: background-color 250ms; }
+.exemploEsquerda { align-self: stretch; display: flex; flex-direction: column; }
+.abas { display: flex; gap: 3px; padding: 5px; border: 1px solid #0b102029; border-radius: 99px; align-self: flex-start; }
+.abas button { min-height: 42px; padding: 10px 15px; border-radius: 99px; font-size: 13px; font-weight: 650; }
+.abas [aria-selected=true] { background: #0b1020; color: #fff; }
+.abas button:hover:not([aria-selected=true]) { background: #ffffff70; }
+.exemploDescricao { margin-block: auto; padding-block: 35px; }
+.palavraExemplo { display: inline-flex; padding: 6px 12px; font-size: 12px; font-weight: 650; border: 1px solid #0b102040; border-radius: 8px; margin-bottom: 24px; }
+.exemploDescricao h3 { font-size: clamp(31px,3vw,46px); font-weight: 730; line-height: 1.08; letter-spacing: -.05em; }
+.exemploDescricao p { font-size: 16px; line-height: 1.6; color: #303d41; margin-top: 22px; }
+.exemploDescricao .linkTexto { margin-top: 24px; font-size: 14px; }
+.exemploVisual { display: flex; justify-content: center; }
+.exemploControle { padding-left: 10px; }
+.exemploControle h4 { font-size: 25px; font-weight: 650; letter-spacing: -.025em; }
+.exemploControle > p:not(.sobreTitulo) { color: #303d41; font-size: 15px; line-height: 1.6; margin-top: 14px; }
+.botoesEtapa { display: flex; gap: 8px; margin-block: 24px; }
+.botoesEtapa button { min-height: 44px; width: 44px; border-radius: 50%; border: 1px solid #0b102040; font-size: 13px; font-weight: 650; }
+.botoesEtapa [aria-pressed=true] { background: #fff; border-color: #0b1020; }
+.botoesEtapa button:hover { background: #ffffffa0; }
+.exemploControle .botaoEscuro { width: 100%; font-size: 14px; padding-inline: 16px; justify-content: space-between; }
+.exemploNota { display: block; margin-top: 20px; font-size: 12px; line-height: 1.6; color: #303d41; }
+
+.usos { padding: 30px 0 120px; }
+.cardsUsos { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,300px),1fr)); gap: 20px; }
+.cardUso { position: relative; padding: 32px; background: #f8f9fb; border: 1px solid #d2d8e2; border-radius: 22px; display: flex; flex-direction: column; min-height: 400px; overflow: hidden; transition: border-color 200ms, background 200ms; }
+.cardUso:hover { border-color: #1e50f0; background: #fff; }
+.cardUso > span { font-size: 13px; color: #4a5466; }
+.cardUso h3 { font-size: 31px; font-weight: 700; letter-spacing: -.04em; line-height: 1.1; margin-top: 50px; }
+.cardUso p { font-size: 16px; line-height: 1.55; color: #4a5466; margin-top: 16px; max-width: 33ch; }
+.cardUso > .setaCard { align-self: flex-end; margin-top: auto; padding-top: 24px; }
+.seloUso { position: absolute; top: 28px; right: 28px; width: 48px; height: 48px; display: grid; place-items: center; border-radius: 50%; background: var(--caso); }
+.seloUso svg { width: 22px; height: 22px; }
+.passos { padding: 110px 0; border-top: 1px solid #cbd1dd; }
+.passosGrade { display: grid; grid-template-columns: repeat(3,1fr); gap: 60px; margin-top: 70px; }
+.passoNumero { font-size: 58px; line-height: 1; font-weight: 730; color: #1e50f0; letter-spacing: -.06em; }
+.passosGrade h3 { margin-top: 28px; font-size: 25px; font-weight: 650; letter-spacing: -.03em; }
+.passosGrade p { margin-top: 14px; color: #4a5466; line-height: 1.6; font-size: 16px; max-width: 34ch; }
+.beneficio { position: relative; padding: 125px 0; background: #d6f5df; }
+.beneficioMarca { position: absolute; inset: 0 0 auto; font-weight: 800; font-size: clamp(120px,24vw,370px); line-height: .9; letter-spacing: -.09em; opacity: .04; overflow: hidden; white-space: nowrap; pointer-events: none; }
+.beneficioGrade { display: grid; grid-template-columns: 1.1fr 1fr; align-items: start; gap: 100px; position: relative; }
+.beneficio h2 { font-size: clamp(44px,5vw,72px); font-weight: 750; line-height: 1.05; letter-spacing: -.055em; }
+.beneficio p { font-size: 19px; line-height: 1.65; color: #264332; }
+.beneficio ul { margin-top: 32px; display: grid; gap: 15px; }
+.beneficio li { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.faq { padding: 110px 0; background: #0b1020; color: #f8f9fb; }
+.faqGrade { display: grid; grid-template-columns: .9fr 1.1fr; gap: 100px; }
+.faq h2 { font-size: clamp(42px,4.5vw,65px); line-height: 1.05; letter-spacing: -.055em; font-weight: 730; }
+.faqIntro { color: #b8c3d8; margin-top: 25px !important; max-width: 32ch; font-size: 17px; line-height: 1.6; }
+.faqLista details { border-bottom: 1px solid #ffffff30; }
+.faqLista details:first-child { border-top: 1px solid #ffffff30; }
+.faqLista summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 25px 0; font-size: 19px; font-weight: 550; list-style: none; }
+.faqLista summary::-webkit-details-marker { display: none; }
+.faqLista summary::after { content: "+"; font-size: 24px; line-height: 1; font-weight: 400; }
+.faqLista details[open] summary::after { content: "−"; }
+.faqLista details p { padding: 0 35px 26px 0; color: #c4cee0; font-size: 16px; line-height: 1.7; }
+.faq :focus-visible { outline-color: #a9c2ff; }
+.convite { padding: 110px 0; text-align: center; background: #1e50f0; color: white; }
+.convite h2 { font-size: clamp(44px,6vw,88px); line-height: 1.03; letter-spacing: -.06em; font-weight: 760; max-width: 930px; margin-inline: auto; }
+.convite p { font-size: 18px; line-height: 1.6; color: #eef2ff; margin: 24px auto 30px; max-width: 48ch; }
+.convite :focus-visible { outline-color: #d6f5df; }
+.rodape { padding: 55px 0 0; }
+.rodapeGrade { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 50px; }
+.rodapeSobre p { color: #4a5466; font-size: 14px; line-height: 1.6; margin-top: 18px; max-width: 30ch; }
+.rodape nav { display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
+.rodape nav b { margin-bottom: 10px; }
+.rodape nav a { color: #4a5466; min-height: 26px; }
+.rodape nav a:hover { text-decoration: underline; text-underline-offset: 4px; color: #1e50f0; }
+.rodapeBase { border-top: 1px solid #cbd1dd; margin-top: 50px; padding: 24px 0; display: flex; gap: 20px; justify-content: space-between; color: #4a5466; font-size: 12px; }
+.rodapeNome { font-size: clamp(82px,18.2vw,270px); line-height: .85; letter-spacing: -.075em; text-align: center; font-weight: 800; color: #1e50f0; padding-top: 20px; white-space: nowrap; overflow: hidden; }
+
+@media (min-width: 1600px) { .heroGrade { gap: 100px; } }
+@media (max-width: 1200px) {
+  .container, .historiaPalco { width: calc(100% - 48px); }
+  .heroGrade { gap: 25px; }
+  .heroTexto h1 { font-size: 76px; }
+  .cartaoFlutuante { left: -8%; font-size: 13px; padding: 14px; }
+  .cartaoEntrega { right: -4%; font-size: 13px; padding: 14px; }
+  .exemploQuadro { grid-template-columns: 1fr 310px; padding: 32px; gap: 30px; }
+  .exemploControle { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; border-top: 1px solid #0b102030; padding: 25px 0 0; }
+  .exemploControle .sobreTitulo { margin-bottom: 0 !important; }
+  .exemploControle h4 { grid-column: 1; }
+  .exemploControle > p:not(.sobreTitulo) { grid-column: 1; grid-row: 3 / 6; margin-top: 0; }
+  .exemploControle .botoesEtapa { grid-column: 2; grid-row: 1 / 3; margin-block: 0; }
+  .exemploControle .botaoEscuro { grid-column: 2; grid-row: 3; }
+  .exemploControle .exemploNota { grid-column: 2; margin-top: 5px; }
+  .historiaPalco { gap: 50px; }
+  .historiaTexto h2 { font-size: 47px; }
+  .beneficioGrade, .faqGrade { gap: 50px; }
+}
+@media (max-width: 767px) {
+  .container { width: calc(100% - 40px); }
+  .sobreTitulo { font-size: 12px; margin-bottom: 18px !important; }
+  .hero { padding: 120px 0 60px; }
+  .heroGrade { grid-template-columns: 1fr; gap: 25px; }
+  .heroTexto h1 { font-size: clamp(48px,11.4vw,74px); max-width: 620px; }
+  .heroTexto > p:not(.sobreTitulo) { font-size: 17px; margin-top: 25px; }
+  .heroAcoes { gap: 12px 22px; margin-top: 25px; }
+  .heroNota { font-size: 12px; }
+  .heroConversa { min-height: 625px; margin-top: 15px; }
+  .heroConversa > .telefone { transform: rotate(3deg); }
+  .cartaoFlutuante { left: -3%; top: 60px; padding: 12px 15px; font-size: 12px; }
+  .cartaoEntrega { right: -2%; bottom: 70px; padding: 13px; font-size: 12px; }
+  .cartaoEntrega small { font-size: 10px; }
+  .orbita { width: 380px; height: 380px; }
+  .faixa { padding: 18px 0; }
+  .faixaTrilho b { font-size: 19px; }
+  .faixaTrilho > span { gap: 28px; padding-inline: 14px; }
+  .cabSecao { display: block; margin-bottom: 32px; }
+  .cabSecao h2 { font-size: clamp(43px,10vw,64px); }
+  .cabSecao > p { margin-top: 22px; font-size: 16px; }
+  .exemplos { padding: 75px 0; }
+  .exemploQuadro { grid-template-columns: 1fr; padding: 22px 18px; gap: 26px; border-radius: 22px; }
+  .abas { align-self: stretch; }
+  .abas button { flex: 1; padding-inline: 10px; }
+  .exemploDescricao { padding: 25px 0 0; }
+  .palavraExemplo { margin-bottom: 17px; }
+  .exemploDescricao h3 { font-size: 36px; }
+  .exemploDescricao p { margin-top: 17px; }
+  .exemploDescricao .linkTexto { margin-top: 12px; }
+  .exemploControle { display: block; }
+  .exemploControle h4 { margin-top: 10px; }
+  .exemploControle > p:not(.sobreTitulo) { margin-top: 13px; font-size: 16px; }
+  .exemploControle .botoesEtapa { margin-block: 20px; }
+  .exemploControle .exemploNota { margin-top: 15px; text-align: center; }
+  .historia { height: 360svh; }
+  .historiaPalco { width: calc(100% - 36px); min-height: 0; height: calc(100svh - 72px); grid-template-columns: 1fr; gap: 0; align-content: center; padding-block: 10px; }
+  .historiaTexto h2 { font-size: 30px; line-height: 1.05; max-width: 350px; }
+  .historiaTexto .sobreTitulo { display: none; }
+  .navegacaoEtapas { margin-top: 16px; gap: 8px; }
+  .navegacaoEtapas button { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 5px 0; }
+  .navegacaoEtapas b { margin: 0; font-size: 10px; }
+  .navegacaoEtapas span { font-size: 9px; }
+  .textoEtapa { min-height: 104px; margin-top: 12px; }
+  .textoEtapa h3 { font-size: 20px; }
+  .textoEtapa p { font-size: 13px; line-height: 1.5; margin-top: 7px; }
+  .dicaScroll { display: none; }
+  .historiaVisual { height: 390px; margin-top: 6px; }
+  .historiaVisual .telefone { transform: scale(.61); transform-origin: top center; margin-top: 0; position: absolute; top: 0; }
+  .historiaVisual .demoLegenda { position: absolute; bottom: 5px; font-size: 9px; }
+  .numeroGigante { font-size: 290px; right: 0; }
+  .historia[data-reduz] .historiaPalco { padding-block: 45px; }
+  .cardsUsos { grid-template-columns: 1fr; gap: 15px; }
+  .usos { padding: 0 0 70px; }
+  .cardUso { min-height: 300px; padding: 27px; }
+  .cardUso h3 { margin-top: 38px; font-size: 30px; }
+  .cardUso p { max-width: 100%; }
+  .passos { padding: 70px 0; }
+  .passosGrade { grid-template-columns: 1fr; gap: 35px; margin-top: 40px; }
+  .passosGrade > div { display: grid; grid-template-columns: 58px 1fr; gap: 0 20px; }
+  .passoNumero { font-size: 43px; grid-row: 1 / 3; }
+  .passosGrade h3 { margin-top: 0; font-size: 23px; }
+  .passosGrade p { grid-column: 2; margin-top: 10px; max-width: none; }
+  .beneficio { padding: 75px 0; }
+  .beneficioGrade, .faqGrade { grid-template-columns: 1fr; gap: 30px; }
+  .beneficio h2 { font-size: 43px; }
+  .beneficio p { font-size: 17px; }
+  .faq { padding: 70px 0; }
+  .faq h2 { font-size: 43px; }
+  .faqIntro { margin-top: 20px !important; font-size: 16px; }
+  .faqLista summary { font-size: 17px; padding-block: 22px; }
+  .faqLista details p { padding-right: 15px; }
+  .convite { padding: 75px 0; }
+  .convite h2 { font-size: 49px; }
+  .convite p { font-size: 17px; }
+  .rodapeGrade { grid-template-columns: 1fr 1fr; gap: 35px 20px; }
+  .rodapeSobre { grid-column: 1 / -1; }
+  .rodapeSobre p { max-width: none; }
+  .rodape nav { font-size: 13px; gap: 10px; }
+  .rodape nav a { min-height: 34px; }
+  .rodapeBase { flex-direction: column; gap: 10px; margin-top: 25px; }
+}
+@media (max-width: 767px) and (max-height: 740px) {
+  .historiaTexto h2 { font-size: 25px; }
+  .historiaVisual { height: 310px; }
+  .historiaVisual .telefone { transform: scale(.49); }
+  .textoEtapa { min-height: 100px; }
+  .textoEtapa p { font-size: 12px; }
+}
+@media (max-width: 360px) { .telefone { width: 280px; height: 560px; } .capaPost { height: 250px; } .exemploQuadro { padding-inline: 14px; } }
+@media (prefers-reduced-motion: reduce) {
+  .pagina *, .pagina *::before, .pagina *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .historia { height: auto; }
+  .historiaPalco { position: relative; height: auto; padding-block: 60px; }
+  .faixaTrilho { width: 100%; }
+  .faixaTrilho > span { flex-wrap: wrap; justify-content: center; gap: 20px; padding-inline: 20px; }
+  .faixaTrilho > span[aria-hidden] { display: none; }
+}

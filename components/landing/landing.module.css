@@ -106,6 +106,15 @@
   color: #0b1020;
 }
 
+.cab[data-claro]:not([data-vidro]) {
+  color: #fff;
+}
+
+.cab[data-claro]:not([data-vidro]) .cabBotao {
+  color: #0b1020;
+  background: #fff;
+}
+
 .cab[data-vidro] .cabBarra::before {
   background-color: rgb(255 255 255 / 0.72);
   box-shadow:

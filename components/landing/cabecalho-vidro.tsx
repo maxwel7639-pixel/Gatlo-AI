@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import Link from "next/link";
 import { PRODUTO } from "@/lib/config";
 import { Logo } from "@/components/ui";
-import { IconeCadeado, IconeComentario, IconeMenu, IconeRaio, IconeRelogio, IconeX } from "@/components/icones";
+import { IconeCadeado, IconeComentario, IconeInstagram, IconeLink, IconeMenu, IconeRaio, IconeX } from "@/components/icones";
 import s from "./landing.module.css";
 
 type Item = { href: string; texto: string; descricao?: string; icone?: (p: { className?: string }) => ReactNode };
@@ -12,9 +12,7 @@ type Grupo = { titulo?: string; itens: Item[] };
 /** com href o item vai direto (sem painel); cartoes = painel de cartões com ícone, senão colunas */
 type Menu = { id: string; texto: string; href?: string; cartoes?: boolean; grupos: Grupo[] };
 
-const paraCadastro = (textos: string[]) => textos.map((texto) => ({ href: "/cadastro", texto }));
-
-function menus(testeDias: number): Menu[] {
+function menus(): Menu[] {
   return [
     {
       id: "produto",
@@ -23,24 +21,27 @@ function menus(testeDias: number): Menu[] {
       grupos: [
         {
           itens: [
-            { href: "#cap-titulo", texto: "Como funciona", descricao: "Do comentário ao clique, sozinho", icone: IconeComentario },
-            { href: "#antes-depois", texto: "Antes e depois", descricao: "Teu direct com e sem o Gatlo AI", icone: IconeRaio },
-            { href: "#limites", texto: "Limites", descricao: "O que ele faz e o que não promete", icone: IconeCadeado },
-            { href: "#preco", texto: "Preço", descricao: `Teste ${testeDias} dias grátis, sem cartão`, icone: IconeRelogio },
+            { href: "/produto/instagram", texto: "Instagram", descricao: "Teu conteúdo abre a conversa", icone: IconeInstagram },
+            { href: "/produto/instagram#como-funciona", texto: "Como funciona", descricao: "Acompanha o comentário virar DM", icone: IconeComentario },
+            { href: "/produto/instagram#exemplos", texto: "Experimenta a ideia", descricao: "Troca o exemplo e avança a conversa", icone: IconeRaio },
+            { href: "/#limites", texto: "O que tu leva", descricao: "Recursos e limites, com clareza", icone: IconeCadeado },
           ],
         },
       ],
     },
     {
-      id: "para-quem",
-      texto: "Para quem",
-      // ainda não existe página por perfil nem por uso: todos levam ao cadastro
+      id: "solucoes",
+      texto: "Soluções",
+      cartoes: true,
       grupos: [
-        { titulo: "Por perfil", itens: paraCadastro(["Criadores", "Lojas", "Infoprodutores", "Agências"]) },
-        { titulo: "Por uso", itens: paraCadastro(["Link de produto", "Material grátis", "Cupom", "Lista de espera"]) },
+        { itens: [
+          { href: "/solucoes/materiais-gratuitos", texto: "Material gratuito", descricao: "Guias, aulas e ideias na DM", icone: IconeComentario },
+          { href: "/solucoes/catalogo", texto: "Catálogo e produtos", descricao: "Do post até a tua coleção", icone: IconeLink },
+          { href: "/solucoes/agendamentos", texto: "Agendamento por link", descricao: "O próximo horário começa no post", icone: IconeRaio },
+        ] },
       ],
     },
-    { id: "preco", texto: "Preço", href: "#preco", grupos: [] },
+    { id: "preco", texto: "Preço", href: "/#preco", grupos: [] },
     {
       id: "ajuda",
       texto: "Ajuda",
@@ -82,13 +83,14 @@ function Ir({ href, ...p }: PropsIr) {
  * conteúdo, que sobe em escadinha. No telefone, os três tracinhos abrem o menu de tela cheia.
  * As outras páginas continuam com o CabecalhoPublico.
  */
-export function CabecalhoVidro({ testeDias }: { testeDias: number }) {
+export function CabecalhoVidro({ testeDias, claroNoTopo = false }: { testeDias?: number; claroNoTopo?: boolean }) {
   const [rolou, setRolou] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const [gaveta, setGaveta] = useState(false);
   const zona = useRef<HTMLDivElement>(null);
   const timer = useRef(0);
-  const lista = menus(testeDias);
+  const lista = menus();
+  const convite = testeDias ? `Teste ${testeDias} dias grátis` : "Começar meu teste";
   const comPainel = lista.filter((m) => !m.href);
   const atual = comPainel.find((m) => m.id === menu);
 
@@ -115,6 +117,7 @@ export function CabecalhoVidro({ testeDias }: { testeDias: number }) {
     const tecla = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (menu) document.getElementById(`gatilho-${menu}`)?.focus();
+      if (gaveta) document.getElementById("gatilho-abre-menu")?.focus();
       setMenu(null);
       setGaveta(false);
     };
@@ -157,6 +160,7 @@ export function CabecalhoVidro({ testeDias }: { testeDias: number }) {
       className={s.cab}
       data-rolou={rolou ? "" : undefined}
       data-vidro={rolou || atual || gaveta ? "" : undefined}
+      data-claro={claroNoTopo || undefined}
     >
       {atual && <div className={s.menuFundo} aria-hidden="true" />}
 
@@ -203,13 +207,14 @@ export function CabecalhoVidro({ testeDias }: { testeDias: number }) {
             <Link href="/cadastro" className={s.cabBotao}>
               {/* um span só: dentro do flex do botão, o espaço entre pedaços soltos some */}
               <span>
-                Teste <span className="max-sm:hidden">{testeDias} dias </span>grátis
+                {convite}
               </span>
             </Link>
             <Link href="/entrar" className={s.cabEntrar}>
               Entrar
             </Link>
             <button
+              id="gatilho-abre-menu"
               type="button"
               className={s.cabTracinhos}
               aria-expanded={gaveta}
@@ -291,7 +296,7 @@ export function CabecalhoVidro({ testeDias }: { testeDias: number }) {
           </nav>
           <div className={`${s.gavetaRodape} ${s.menuSobe}`} style={{ "--i": comPainel.length } as CSSProperties}>
             <Link href="/cadastro" className={`${s.cabBotao} ${s.gavetaBotao}`} onClick={fechaTudo}>
-              Teste {testeDias} dias grátis
+              {convite}
             </Link>
             <Link href="/entrar" className={s.gavetaEntrar} onClick={fechaTudo}>
               Entrar

@@ -29,7 +29,7 @@ const COM = [
  * título do "com". No telefone os cartões ficam um embaixo do outro, já com o laço.
  * A frase do título vira marca d'água atrás deles; o h2 de verdade fica na página, só pra leitor de tela.
  */
-export function AntesDepois({ testeDias }: { testeDias: number }) {
+export function AntesDepois({ testeDias }: { testeDias?: number }) {
   const trilho = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -99,7 +99,7 @@ export function AntesDepois({ testeDias }: { testeDias: number }) {
             ))}
           </ul>
           <Link href="/cadastro" className={s.adBotao}>
-            Teste {testeDias} dias grátis
+            {testeDias ? `Teste ${testeDias} dias grátis` : "Começar meu teste"}
           </Link>
         </div>
       </div>
