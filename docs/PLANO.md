@@ -165,17 +165,38 @@ Fontes lidas em docs.asaas.com (18/10/2026): `/docs/pix-automatico`, `/docs/pix-
 
 ---
 
-## O que o MAXWEL precisa fazer / fornecer
+## O que falta pra abrir pra clientes (26/10/2026)
 
-1. **Decidir**: nome definitivo (troca em `lib/config.ts`), e-mail de suporte, e se mantém o escopo de métricas na revisão.
-2. **Supabase**: criar um projeto NOVO (não o do CRM), aplicar `supabase/migrations/0001_esquema.sql`, e me passar URL, anon key e service role (pela Vercel, não por chat). No Auth: senha mínima 8, proteção de senha vazada ligada, confirmação de e-mail ligada, Site URL = o subdomínio, e os modelos de e-mail apontando pra `/auth/confirmar` (veja o README).
-3. **App da Meta**: criar app (tipo Empresa) → produto Instagram → "API setup with Instagram login":
-   - copiar **Instagram app ID** e **Instagram app secret**;
-   - em "Business login settings": redirect `https://<subdominio>/api/instagram/callback`, deauthorize `https://<subdominio>/api/instagram/desautorizar`, data deletion `https://<subdominio>/api/instagram/exclusao`;
-   - em Configurações básicas: política de privacidade `https://<subdominio>/privacidade`, termos `https://<subdominio>/termos`, exclusão de dados `https://<subdominio>/exclusao-de-dados`;
-   - adicionar o @maxwel_dev (e os primeiros clientes) como **testadores do Instagram**;
-   - iniciar a verificação da empresa (CNPJ) no Business Manager.
-4. **Subdomínio** no DNS (CNAME pra Vercel).
-5. **Asaas**: conta, chave de API (sandbox e produção) e Pix Automático habilitado.
-6. **Mercado Pago**: credenciais de produção (de preferência uma aplicação só do Gatlo AI) e a assinatura secreta do webhook.
-7. **Gerar** `GATILHO_CHAVE_TOKENS` e `CRON_SECRET` (comandos no `.env.example`) direto na Vercel.
+**Já no ar:** site em https://gatlo.mxdigital.ia.br (Vercel, https e cabeçalhos ok); Supabase `gatlo-ai` com as
+migrations 0001..0008; `gatilho-envia` rodando de 3 em 3 min (200) e a limpeza diária; segredos do app na Vercel.
+**Mas o site no ar ainda é a `main` da fase A:** as fases B e C só entram com o merge do PR desta cadeia.
+
+Na ordem (cada passo é do Maxwel, no painel de cada serviço; nenhuma chave passa pelo chat):
+
+1. **Merge do PR do app na `main`** (depois do teu OK). O PR do site (#1) mexe no mesmo `app/page.tsx`: quem
+   entrar por segundo resolve o conflito ficando com a versão do site (ela já diz "Pix Automático (Asaas)").
+2. **Supabase → Authentication**
+   - URL Configuration: Site URL = `https://gatlo.mxdigital.ia.br`; Redirect URLs: `https://gatlo.mxdigital.ia.br/**`.
+   - Providers → Email: confirmação de e-mail ligada, senha mínima 8. (Proteção de senha vazada só existe no plano Pro.)
+   - Email Templates: os dois links do README (`/auth/confirmar?token_hash=...`).
+   - **SMTP próprio (obrigatório):** o e-mail padrão do Supabase só entrega pra quem é da equipe do projeto (e
+     uns 2 por hora). Sem SMTP, cliente nenhum recebe a confirmação do cadastro nem o "esqueci a senha".
+     Ex.: Resend (grátis até 3.000/mês): verificar o domínio `mxdigital.ia.br` (registros DNS no registro.br) e
+     preencher em Authentication → SMTP Settings: host `smtp.resend.com`, porta `465`, usuário `resend`, senha =
+     a chave do Resend, remetente `contato@mxdigital.ia.br`, nome `Gatlo AI`.
+3. **Webhook do Instagram:** gerar um texto aleatório (`node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"`),
+   colocar como secret `INSTAGRAM_WEBHOOK_VERIFY_TOKEN` em Supabase → Edge Functions → Secrets, e no app da Meta
+   (Instagram → Webhooks) usar a URL `https://mkhfikiniyiowxohznzc.supabase.co/functions/v1/gatilho-webhook` com o
+   mesmo texto, e assinar o campo `comments`. Hoje a função responde 503 justamente por falta desse secret.
+4. **Mercado Pago (cartão):** na Vercel, `MERCADOPAGO_ACCESS_TOKEN` e `MERCADOPAGO_WEBHOOK_SECRET` (produção) e
+   redeploy. No painel do MP → Webhooks: URL `https://gatlo.mxdigital.ia.br/api/mercadopago-webhook`, eventos
+   "Pagamentos" e "Planos e assinaturas". Sem a chave E o segredo, o botão do cartão não aparece no painel.
+5. **Asaas (Pix Automático): primeiro o sandbox.** Rodar um ciclo inteiro no sandbox (no localhost, com a chave
+   do sandbox no `.env.local`): assinar, pagar o QR, conferir que a assinatura ativa e que a próxima cobrança vem
+   para daqui a 1 mês (não hoje). Só depois: `ASAAS_API_KEY` (produção), `ASAAS_WEBHOOK_TOKEN` e
+   `ASAAS_AMBIENTE=producao` na Vercel, e o webhook do Asaas apontando pra `https://gatlo.mxdigital.ia.br/api/asaas-webhook`.
+   Sem a chave E o token do webhook, o botão do Pix não aparece; dá pra abrir só com o cartão.
+6. **B4, teste real:** tua conta como testadora do app → automação de verdade → comentar de outra conta → DM com
+   botão, clique contado, resposta pública.
+7. **D3, revisão da Meta:** roteiro do vídeo e textos de cada permissão em [`docs/REVISAO-META.md`](REVISAO-META.md).
+   Até a revisão sair, só contas **testadoras** conectam (o cliente aceita o convite no Instagram).

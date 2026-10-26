@@ -113,6 +113,14 @@ export async function criarCliente(o: { userId: string; nome: string; email: str
   return r.id;
 }
 
+/** Hoje + 1 mês na data de Brasília, como o `interval '1 month'` do Postgres: 31/01 vira 28/02 (ou 29). */
+export function daquiUmMes(agora = new Date()): string {
+  const [a, m, d] = agora.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }).split("-").map(Number);
+  // m vai de 1 a 12, então Date.UTC(a, m, ...) já é o mês seguinte (e dezembro vira janeiro do ano que vem)
+  const ultimoDia = new Date(Date.UTC(a, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(a, m, Math.min(d, ultimoDia))).toISOString().slice(0, 10);
+}
+
 /**
  * Cria a autorização do Pix Automático e devolve o QR Code do 1º pagamento
  * (que também registra o consentimento do pagador). Modo SUBSCRIPTION: o Asaas
@@ -125,11 +133,11 @@ export async function criarAutorizacao(o: { clienteId: string; userId: string; p
     method: "POST",
     body: JSON.stringify({
       customerId: o.clienteId,
-      // máx. 35 caracteres: o uuid sem os traços tem 32
-      contractId: o.userId.replaceAll("-", ""),
+      // máx. 35 caracteres: 24 do uuid + o instante (8), um por autorização, pra quem assina de novo
+      contractId: `${o.userId.replaceAll("-", "").slice(0, 24)}${Date.now().toString(36)}`,
       frequency: "MONTHLY",
-      // data de hoje em UTC: nunca antes da de Brasília, então nunca no passado
-      startDate: new Date().toISOString().slice(0, 10),
+      // o QR imediato já é o 1º mês: a recorrência começa no mês seguinte, senão cobra o 1º mês duas vezes
+      startDate: daquiUmMes(),
       paymentCreationMode: "SUBSCRIPTION",
       value: preco,
       description: PRODUTO.nome,

@@ -45,6 +45,14 @@ const temMeta = Boolean(
  */
 export const instagramDemonstracao = demoLigado || !temMeta || usaBancoLocal;
 
+/**
+ * Portas de pagamento prontas: a chave da API E o segredo do webhook. Sem a chave o
+ * checkout dá erro; sem o segredo o webhook responde 401 e o pagamento nunca libera.
+ * Faltando um dos dois, o botão some e a ação recusa. O Pix entra depois do sandbox.
+ */
+export const temCartao = Boolean(process.env.MERCADOPAGO_ACCESS_TOKEN && process.env.MERCADOPAGO_WEBHOOK_SECRET);
+export const temPix = Boolean(process.env.ASAAS_API_KEY && process.env.ASAAS_WEBHOOK_TOKEN);
+
 export const AVISO_SEM_CONFIGURACAO =
   "O app está sem banco configurado. Preenche as variáveis do Supabase " +
   "(veja o .env.example e o README) ou liga GATILHO_DEMO=1 pra testar.";

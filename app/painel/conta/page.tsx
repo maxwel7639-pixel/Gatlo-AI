@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { basePainel } from "@/lib/painel";
 import { PRODUTO } from "@/lib/config";
-import { usaSupabase } from "@/lib/env";
+import { temCartao, temPix, usaSupabase } from "@/lib/env";
 import { desconectarInstagram } from "@/lib/acoes";
 import { regras } from "@/lib/regras";
 import { dataCurta, numero } from "@/lib/formato";
@@ -109,6 +109,7 @@ export default async function Conta({
             precoCentavos={r.precoMensalCentavos}
             carenciaDias={r.carenciaDias}
             gateway={usaSupabase}
+            formas={{ cartao: !usaSupabase || temCartao, pix: !usaSupabase || temPix }}
             iniciada={q.assinatura === "iniciada"}
           />
         </section>

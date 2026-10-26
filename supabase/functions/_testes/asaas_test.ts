@@ -32,6 +32,7 @@ const { POST } = await import("../../../app/api/asaas-webhook/route.ts");
 const { abrirAutorizacaoDoServidor } = await import("../../../lib/asaas-servidor.ts");
 const { abrirCheckout } = await import("../../../lib/mp-checkout.ts");
 const { limparCpfCnpj } = await import("../../../lib/cpf-cnpj.ts");
+const { daquiUmMes } = await import("../../../lib/asaas.ts");
 
 const CPF = "529.982.247-25"; // CPF válido de teste (só dígito verificador, de ninguém)
 const json = (corpo: unknown, status = 200) => Response.json(corpo, { status });
@@ -431,6 +432,7 @@ Deno.test("asaas (e): o valor enviado ao Asaas é o de regras no banco; mudou a 
     frequency: string;
     paymentCreationMode: string;
     contractId: string;
+    startDate: string;
     customerId: string;
     immediateQrCode: { originalValue: number };
   };
@@ -444,7 +446,10 @@ Deno.test("asaas (e): o valor enviado ao Asaas é o de regras no banco; mudou a 
       assertEquals(ultima().value, 97.9, "o preço de regras hoje");
       assertEquals(ultima().immediateQrCode.originalValue, 97.9, "o 1º pagamento tem o mesmo preço");
       assertEquals([ultima().frequency, ultima().paymentCreationMode], ["MONTHLY", "SUBSCRIPTION"]);
-      assertEquals(ultima().contractId, u1.replaceAll("-", ""), "contractId cabe nos 35 caracteres do Asaas");
+      const contrato1 = ultima().contractId;
+      assert(contrato1.length <= 35, "contractId cabe nos 35 caracteres do Asaas");
+      assert(contrato1.startsWith(u1.replaceAll("-", "").slice(0, 24)), "contractId começa pelo dono");
+      assertEquals(ultima().startDate, daquiUmMes(), "o QR imediato é o 1º mês: a recorrência começa no mês seguinte");
 
       const a1 = await assinaturaDe(db, u1);
       assertEquals([a1.gateway, a1.gateway_cliente_id, a1.gateway_assinatura_id, a1.valor_centavos], ["asaas", "cus_n1", "aut-n2", 9790]);
@@ -453,6 +458,7 @@ Deno.test("asaas (e): o valor enviado ao Asaas é o de regras no banco; mudou a 
       // `regras()` guarda 5 min em cache: anda o relógio para ler o valor novo
       Date.now = () => realNow() + 6 * 60_000;
       await abrirAutorizacaoDoServidor(usuario(u2), CPF);
+      assert(ultima().contractId !== contrato1, "cada autorização tem o seu contractId");
       assertEquals(ultima().value, 120, "a regra mudou, o valor enviado ao Asaas mudou");
       assertEquals(ultima().immediateQrCode.originalValue, 120);
       assertEquals((await assinaturaDe(db, u2)).valor_centavos, 12000, "o preço da época fica guardado");
@@ -745,4 +751,12 @@ Deno.test("pix e cartão: nunca duas cobranças vivas entre os gateways (cartão
     assertEquals(r, { url: "https://mp.example/novo" });
   }, mp);
   assertEquals(chamadasMP[0].headers.get("x-idempotency-key"), `assinatura-${userId}-aut-morto`);
+});
+
+Deno.test("asaas: a recorrência começa um mês depois, na data de Brasília, como o interval '1 month' do Postgres", () => {
+  assertEquals(daquiUmMes(new Date("2026-10-26T12:00:00Z")), "2026-11-26");
+  assertEquals(daquiUmMes(new Date("2026-12-15T12:00:00Z")), "2027-01-15", "dezembro vira janeiro do ano seguinte");
+  assertEquals(daquiUmMes(new Date("2027-01-31T12:00:00Z")), "2027-02-28", "31/01 cai no último dia de fevereiro");
+  assertEquals(daquiUmMes(new Date("2028-01-31T12:00:00Z")), "2028-02-29", "ano bissexto");
+  assertEquals(daquiUmMes(new Date("2026-11-01T01:00:00Z")), "2026-11-30", "01/11 01h UTC ainda é 31/10 em Brasília");
 });

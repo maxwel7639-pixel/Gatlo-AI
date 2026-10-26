@@ -1,3 +1,4 @@
+import { PRODUTO } from "@/lib/config";
 import { emReais } from "@/lib/regras";
 import { dataCurta } from "@/lib/formato";
 import type { Situacao } from "@/lib/dados/tipos";
@@ -116,12 +117,15 @@ export function Assinatura({
   precoCentavos,
   carenciaDias,
   gateway,
+  formas,
   iniciada,
 }: {
   situacao: Situacao | null;
   precoCentavos: number;
   carenciaDias: number;
   gateway: boolean;
+  /** Quais portas têm chave (lib/env.ts). Na demonstração, as duas. */
+  formas: { cartao: boolean; pix: boolean };
   iniciada: boolean;
 }) {
   if (!situacao) {
@@ -148,7 +152,9 @@ export function Assinatura({
         </div>
         <div className="text-left sm:text-right">
           <p className="text-2xl font-bold">{preco}</p>
-          <p className="text-xs text-suave">por mês · cartão ou Pix Automático</p>
+          <p className="text-xs text-suave">
+            por mês{formas.cartao && formas.pix ? " · cartão ou Pix Automático" : formas.cartao ? " · no cartão" : formas.pix ? " · no Pix Automático" : ""}
+          </p>
         </div>
       </div>
 
@@ -166,10 +172,15 @@ export function Assinatura({
       </dl>
 
       {/* Sem assinatura no banco, ou já ativa, não abre checkout: o clique criaria cobrança sem dono certo ou dobrada. */}
-      {v.passo !== "nenhum" ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <AssinarCartao preco={preco} deNovo={deNovo} />
-          <AssinarPix preco={preco} deNovo={deNovo} />
+      {v.passo !== "nenhum" && (formas.cartao || formas.pix) ? (
+        <div className={`mt-5 grid gap-3 ${formas.cartao && formas.pix ? "sm:grid-cols-2" : ""}`}>
+          {formas.cartao ? <AssinarCartao preco={preco} deNovo={deNovo} /> : null}
+          {formas.pix ? <AssinarPix preco={preco} deNovo={deNovo} /> : null}
+        </div>
+      ) : null}
+      {v.passo !== "nenhum" && !formas.cartao && !formas.pix ? (
+        <div className="mt-5">
+          <Aviso tipo="info">A assinatura ainda não abriu por aqui. Pra assinar, escreve pra {PRODUTO.emailSuporte}.</Aviso>
         </div>
       ) : null}
 

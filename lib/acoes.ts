@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirUsuario, COOKIE_SESSAO_LOCAL } from "./auth/sessao";
 import { repo } from "./dados";
-import { usaSupabase } from "./env";
+import { temCartao, temPix, usaSupabase } from "./env";
 import { createAdminClient } from "./supabase/admin";
 import { createClient } from "./supabase/server";
 import { mudar } from "./local/banco";
@@ -189,6 +189,7 @@ export async function assinarCartao(): Promise<EstadoAssinatura> {
   if (!usaSupabase) {
     return { erro: "No modo demonstração não dá pra assinar: aqui não passa cartão de ninguém." };
   }
+  if (!temCartao) return { erro: "A assinatura no cartão ainda não abriu." };
   if (!(await dentroDaTaxa(`assinar:${usuario.id}`, 5, 3600))) {
     return { erro: "Muitas tentativas de assinatura numa hora. Espera um pouco e tenta de novo." };
   }
@@ -222,6 +223,7 @@ export async function assinarPix(_anterior: EstadoPix, formulario: FormData): Pr
   if (!usaSupabase) {
     return { erro: "No modo demonstração não dá pra assinar: aqui não passa Pix de ninguém." };
   }
+  if (!temPix) return { erro: "A assinatura no Pix Automático ainda não abriu." };
   if (!(await dentroDaTaxa(`assinar-pix:${usuario.id}`, 5, 3600))) {
     return { erro: "Muitas tentativas de assinatura numa hora. Espera um pouco e tenta de novo." };
   }
