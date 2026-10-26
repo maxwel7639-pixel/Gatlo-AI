@@ -89,7 +89,7 @@ export function Historia({
     {
       titulo: "Alguém comenta a palavra",
       texto:
-        "A Ana comentou RECEITA. Maiúscula e acento não fazem diferença: RECEITA, receita e Receita contam igual. Vale num post escolhido ou em qualquer post do perfil.",
+        "A Ana comentou IDEIAS. Maiúscula e acento não fazem diferença: IDEIAS, ideias e Ideias contam igual. Vale num post escolhido ou em qualquer post do perfil.",
     },
     {
       titulo: "O comentário ganha resposta",
@@ -162,8 +162,8 @@ export function Historia({
 /* ------------------------------------------------------------------ o celular */
 
 const ANA = "ana.luiza.rs";
-const LOJA = "cafe.da.serra";
-const FOTO_LOJA = "/demo/avatar";
+const PERFIL = "feed.criativo";
+const POST = "/landing/post-10-ideias.png";
 // as outras duas pessoas que comentaram antes (somam 3 com a Ana)
 const OUTRAS = [
   { nome: "bia.doces.poa", quando: "há 2 min", cor: "linear-gradient(135deg, #34d399, #0e7490)" },
@@ -199,7 +199,7 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
           <div className={s.notificacao}>
             <span className={s.avatarAna}>A</span>
             <p>
-              <b>{ANA}</b> comentou: RECEITA 🙏
+              <b>{ANA}</b> comentou: IDEIAS 🙏
             </p>
           </div>
         )}
@@ -208,12 +208,12 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
           {/* ---------------- o post */}
           <div className={s.cena} data-pos={pos(0)}>
             <div className={s.igTopo}>
-              <Avatar src={FOTO_LOJA} nome={LOJA} className="size-[26px] ring-1" />
-              <b>{LOJA}</b>
+              <Avatar src={null} nome={PERFIL} className="size-[26px] text-[11px]" />
+              <b>{PERFIL}</b>
               <span className={s.igMais}>•••</span>
             </div>
             <div className={s.igFoto}>
-              <Miniatura src="/demo/miniatura/1?v=2" alt="" className="size-full" />
+              <Miniatura src={POST} alt="" className="size-full" />
             </div>
             <div className={s.igAcoes}>
               <IconeCoracao className="size-[21px]" />
@@ -226,7 +226,7 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
                 <b>1.284 curtidas</b>
               </p>
               <p>
-                <b>{LOJA}</b> Bolo de cenoura da vó 🥕 Comenta <b>RECEITA</b> que eu te mando o passo a passo no direct 👇
+                <b>{PERFIL}</b> 10 ideias de post pra qualquer nicho 💡 Comenta <b>IDEIAS</b> que eu te mando a lista completa no direct 👇
               </p>
               <p className={s.igMeta}>Ver todos os {ato >= 1 ? 42 : 41} comentários</p>
             </div>
@@ -235,7 +235,7 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
                 <span className={s.avatarAna}>A</span>
                 <div>
                   <p>
-                    <b>{ANA}</b> RECEITA 🙏
+                    <b>{ANA}</b> IDEIAS 🙏
                   </p>
                   <p className={s.igMeta}>agora · Responder</p>
                 </div>
@@ -243,10 +243,10 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
             )}
             {ato >= 2 && (
               <div className={`${s.comentario} ${s.comentarioResposta}`}>
-                <Avatar src={FOTO_LOJA} nome={LOJA} className="size-[22px] ring-1" />
+                <Avatar src={null} nome={PERFIL} className="size-[22px] text-[10px]" />
                 <div>
                   <p>
-                    <b>{LOJA}</b> Te mandei no direct! 📩
+                    <b>{PERFIL}</b> Te mandei no direct! 📩
                   </p>
                   <p className={s.igMeta}>
                     agora · <span className={s.seloGatlo}>Gatlo AI</span>
@@ -269,12 +269,12 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
             <div className={s.dmFio}>
               <p className={s.dmContexto}>
                 Resposta ao comentário dela
-                <span>“RECEITA 🙏”</span>
+                <span>“IDEIAS 🙏”</span>
               </p>
               {ato >= 3 && (
                 <div className={s.balaoMeu}>
-                  <p>Oi! Aqui está a receita do bolo de cenoura da vó, com o passo a passo 👇</p>
-                  <span className={s.balaoBotao}>Ver a receita</span>
+                  <p>Oi! Aqui estão as 10 ideias de post pra qualquer nicho, com um exemplo de cada 👇</p>
+                  <span className={s.balaoBotao}>Ver as 10 ideias</span>
                 </div>
               )}
               {ato >= 3 && (
@@ -300,7 +300,7 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
                   </div>
                   <div className={s.balaoDela}>
                     <span className={s.avatarAna}>A</span>
-                    <p>Amei!! Já salvei aqui 😍 obrigada</p>
+                    <p>Amei!! Já vou postar a primeira hoje 😍</p>
                   </div>
                 </div>
               )}
@@ -316,12 +316,12 @@ function Celular({ ato, fim, porHora, pausa }: { ato: number; fim: number; porHo
             </div>
             <div className={s.gCartao}>
               <div className={s.gLinhaTopo}>
-                <span className={s.gPalavra}>RECEITA</span>
+                <span className={s.gPalavra}>IDEIAS</span>
                 <span className={s.gAtiva}>
                   <i /> Ativa
                 </span>
               </div>
-              <p className={s.gSub}>Post: Bolo de cenoura da vó</p>
+              <p className={s.gSub}>Post: 10 ideias de post</p>
             </div>
             <div className={s.gNumeros}>
               <Numero rotulo="Comentaram" valor={numero(antes + (naFila ? 500 : 0))} />
