@@ -4,7 +4,51 @@
   (cabeçalho que vira vidro, conversa em loop no hero, faixa de prova, seção presa em capítulos,
   antes e depois que se juntam), com o conteúdo, as cores e a fonte da MX.
   Com "reduzir movimento" (fim do arquivo), nada anda: tudo nasce no estado final.
+  25/10/2026: a landing passa a ser clara (branco escuro); a seção azul e o celular seguem escuros.
 */
+
+/* =================================================================== tema claro da landing */
+
+/* As cores do Tailwind leem estas variáveis (@theme inline no globals.css): trocar aqui troca a
+   landing inteira, sem mexer no painel, que continua escuro. */
+.pagina {
+  --fundo: #e7e9ee;
+  --superficie: #f4f6f9;
+  --superficie-2: #f8f9fb;
+  --superficie-3: #dde2ea;
+  --borda: #d2d8e2;
+  --borda-forte: #bcc5d3;
+  --texto: #0b1020;
+  --suave: #4a5466;
+  --apagado: #667085;
+  --azul-claro: #1d4ed8; /* o azul claro some no fundo claro: aqui ele escurece */
+  --verde: #059669;
+  --vermelho: #dc2626;
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+/* o fundo atrás da página (o que aparece ao puxar além do topo) e a barra de rolagem */
+:global(html):has(.pagina) {
+  background-color: #e7e9ee;
+  color-scheme: light;
+}
+
+/* a seção azul e o celular continuam no tema escuro: os mesmos valores do :root (globals.css) */
+.cap {
+  --fundo: #07090c;
+  --superficie: #0d1117;
+  --superficie-2: #131a24;
+  --superficie-3: #1a2230;
+  --borda: #1f2836;
+  --borda-forte: #2b3647;
+  --texto: #e8edf5;
+  --suave: #8d98ab;
+  --apagado: #5d687b;
+  --azul-claro: #7fa6ff;
+  --verde: #34d399;
+  --vermelho: #f87171;
+}
 
 /* =================================================================== cabeçalho de vidro */
 
@@ -63,7 +107,10 @@
 }
 
 .cab[data-vidro] .cabBarra::before {
-  background-color: rgb(236 241 250 / 0.88);
+  background-color: rgb(255 255 255 / 0.72);
+  box-shadow:
+    0 0 0 1px rgb(11 16 32 / 0.08),
+    0 12px 30px -18px rgb(11 16 32 / 0.35);
   -webkit-backdrop-filter: blur(40px) saturate(160%);
   backdrop-filter: blur(40px) saturate(160%);
   transform: scale(1);
@@ -163,7 +210,7 @@
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: rgb(4 6 12 / 0.5);
+  background: rgb(11 16 32 / 0.35);
   animation: aparecer 300ms ease both;
   pointer-events: none;
 }
@@ -187,9 +234,9 @@
   justify-content: center;
   padding: 36px 40px 40px;
   border-radius: 14px;
-  background: #f4f7fd;
+  background: #fff;
   color: #0b1020;
-  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.6);
+  box-shadow: 0 30px 60px -30px rgb(11 16 32 / 0.45);
   animation: menuAbre 450ms var(--ease) both;
 }
 
@@ -414,7 +461,7 @@
   z-index: -1;
   width: 640px;
   height: 640px;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 42%, transparent), transparent);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 30%, transparent), transparent);
   transform: translate3d(calc(var(--lx, 72vw) - 50%), calc(var(--ly, 440px) - 50%), 0);
   transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
   pointer-events: none;
@@ -525,7 +572,7 @@
   border-radius: 20px;
   font-size: 14px;
   line-height: 1.4;
-  box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.85);
+  box-shadow: 0 24px 48px -24px rgb(11 16 32 / 0.3);
   opacity: 0;
   animation-duration: 9s;
   animation-timing-function: var(--ease);
@@ -535,8 +582,8 @@
 .bolhaComentario {
   justify-self: start;
   max-width: 300px;
-  border: 1px solid rgb(255 255 255 / 0.08);
-  background: rgb(38 42 51 / 0.94);
+  border: 1px solid var(--borda);
+  background: #fff;
   animation-name: bolha1;
 }
 
@@ -591,7 +638,8 @@
   align-items: center;
   max-width: 260px;
   border-radius: 22px 22px 22px 8px;
-  background: #262a33;
+  border: 1px solid var(--borda);
+  background: #fff;
   animation-name: bolha3;
 }
 
@@ -601,7 +649,7 @@
   position: relative;
   display: grid;
   border-block: 1px solid var(--borda);
-  background: rgb(13 17 23 / 0.6);
+  background: rgb(255 255 255 / 0.5);
 }
 
 @media (min-width: 768px) {
@@ -665,7 +713,7 @@
 .provaPalavra {
   padding: 4px 10px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--azul) 22%, transparent);
+  background: color-mix(in srgb, var(--azul) 12%, transparent);
   color: var(--azul-claro);
   font-size: 13px;
   font-weight: 800;
@@ -691,7 +739,7 @@
   height: 36px;
   border-radius: 50%;
   border: 1px solid var(--borda-forte);
-  background: rgb(13 17 23 / 0.92);
+  background: var(--superficie);
   color: var(--texto);
   cursor: pointer;
 }
@@ -1521,7 +1569,7 @@
   position: relative;
   background: var(--azul);
   color: #fff;
-  box-shadow: 0 40px 80px -40px rgb(0 0 0 / 0.85);
+  box-shadow: 0 40px 80px -40px rgb(11 16 32 / 0.45);
 }
 
 .adRotulo {
@@ -1679,12 +1727,10 @@
   margin-left: calc(-1 * var(--sobra));
   transform: rotate(-2deg);
   border-block: 1px solid color-mix(in srgb, var(--azul-claro) 20%, transparent);
-  background:
-    linear-gradient(180deg, rgb(232 237 245 / 0.07), rgb(232 237 245 / 0.02)),
-    rgb(13 17 23 / 0.72);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.66));
   box-shadow:
-    inset 0 1px 0 rgb(232 237 245 / 0.08),
-    0 30px 60px -30px rgb(0 0 0 / 0.8);
+    inset 0 1px 0 #fff,
+    0 30px 60px -30px rgb(11 16 32 / 0.3);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
   backdrop-filter: blur(14px) saturate(140%);
 }
@@ -1795,7 +1841,7 @@
   height: 40px;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--azul-claro) 25%, transparent);
-  background: rgb(13 17 23 / 0.9);
+  background: var(--superficie);
   color: var(--texto);
   cursor: pointer;
   transition: border-color 150ms ease;
@@ -1837,7 +1883,7 @@
   border-radius: 24px;
   border: 1px solid var(--borda);
   background:
-    linear-gradient(160deg, rgb(232 237 245 / 0.04), transparent 45%),
+    linear-gradient(160deg, rgb(255 255 255 / 0.6), transparent 45%),
     var(--superficie);
 }
 

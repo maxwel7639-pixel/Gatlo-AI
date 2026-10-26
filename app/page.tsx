@@ -1,3 +1,4 @@
+import type { Viewport } from "next";
 import { PRODUTO } from "@/lib/config";
 import { REGRAS_DEMONSTRACAO, emReais, regras, type Regras } from "@/lib/regras";
 import { Rodape } from "@/components/publico";
@@ -16,6 +17,9 @@ import s from "@/components/landing/landing.module.css";
 
 // O preço vem da tabela `regras` do banco; a página se refaz a cada hora.
 export const revalidate = 3600;
+
+// a landing é clara: a barra do navegador no celular acompanha
+export const viewport: Viewport = { themeColor: "#e7e9ee", colorScheme: "light" };
 
 async function regrasParaVitrine(): Promise<Regras> {
   try {
@@ -51,7 +55,8 @@ export default async function Inicio() {
   const porHora = Math.round((60 / 3) * r.envioMaxPorRodada);
 
   return (
-    <>
+    // .pagina: o tema claro da landing (as outras páginas seguem escuras)
+    <div className={`${s.pagina} flex flex-1 flex-col`}>
       <LuzDoCursor />
       <CabecalhoVidro testeDias={r.testeDias} />
       <main className="flex-1">
@@ -196,6 +201,6 @@ export default async function Inicio() {
         <p className={s.giganteApagado}>{PRODUTO.nome}</p>
         <p className={s.giganteAceso}>{PRODUTO.nome}</p>
       </div>
-    </>
+    </div>
   );
 }
