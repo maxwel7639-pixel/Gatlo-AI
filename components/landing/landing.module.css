@@ -1,0 +1,2222 @@
+/*
+  Landing do Gatlo AI. 24/10/2026: referência do Clientaê (faixa que reage à rolagem, palavra
+  gigante no rodapé, borda que acende com o mouse). 25/10/2026: estrutura modelada no Manychat
+  (cabeçalho que vira vidro, conversa em loop no hero, faixa de prova, seção presa em capítulos,
+  antes e depois que se juntam), com o conteúdo, as cores e a fonte da MX.
+  Com "reduzir movimento" (fim do arquivo), nada anda: tudo nasce no estado final.
+  25/10/2026: a landing passa a ser clara (branco escuro); a seção azul e o celular seguem escuros.
+*/
+
+/* =================================================================== tema claro da landing */
+
+/* As cores do Tailwind leem estas variáveis (@theme inline no globals.css): trocar aqui troca a
+   landing inteira, sem mexer no painel, que continua escuro. */
+.pagina {
+  --fundo: #e7e9ee;
+  --superficie: #f4f6f9;
+  --superficie-2: #f8f9fb;
+  --superficie-3: #dde2ea;
+  --borda: #d2d8e2;
+  --borda-forte: #bcc5d3;
+  --texto: #0b1020;
+  --suave: #4a5466;
+  --apagado: #667085;
+  --azul-claro: #1d4ed8; /* o azul claro some no fundo claro: aqui ele escurece */
+  --verde: #059669;
+  --vermelho: #dc2626;
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+/* o fundo atrás da página (o que aparece ao puxar além do topo) e a barra de rolagem */
+:global(html):has(.pagina) {
+  background-color: #e7e9ee;
+  color-scheme: light;
+}
+
+/* a seção azul e o celular continuam no tema escuro: os mesmos valores do :root (globals.css) */
+.cap {
+  --fundo: #07090c;
+  --superficie: #0d1117;
+  --superficie-2: #131a24;
+  --superficie-3: #1a2230;
+  --borda: #1f2836;
+  --borda-forte: #2b3647;
+  --texto: #e8edf5;
+  --suave: #8d98ab;
+  --apagado: #5d687b;
+  --azul-claro: #7fa6ff;
+  --verde: #34d399;
+  --vermelho: #f87171;
+}
+
+/* =================================================================== cabeçalho de vidro */
+
+/* Fixo por cima do hero e recuado das bordas, como o do Manychat. No topo é transparente, com
+   texto claro; aos 50px o fundo assenta em vidro claro e o texto fica escuro. */
+.cab {
+  --ease: cubic-bezier(0.165, 0.84, 0.44, 1);
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 30;
+  padding: 10px 12px 0;
+  color: var(--texto);
+  pointer-events: none; /* só a barra recebe clique, não a faixa em volta dela */
+  transition: color 600ms var(--ease);
+}
+
+@media (min-width: 768px) {
+  .cab {
+    padding-inline: 20px;
+  }
+}
+
+.cabBarra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 54px; /* 10 + 54 = 64: o que fica preso na tela (capítulos, antes e depois) começa logo abaixo */
+  padding: 0 6px 0 12px;
+  pointer-events: auto;
+}
+
+@media (min-width: 768px) {
+  .cabBarra {
+    padding: 0 8px 0 18px;
+  }
+}
+
+/* o fundo é uma camada à parte: nasce um pouco maior e transparente, e encolhe até virar vidro */
+.cabBarra::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 14px;
+  transform: scale(1.01, 1.1);
+  transition:
+    background-color 600ms var(--ease),
+    backdrop-filter 600ms var(--ease),
+    transform 600ms var(--ease);
+}
+
+/* vidro: rolou, ou um menu está aberto */
+.cab[data-vidro] {
+  color: #0b1020;
+}
+
+.cab[data-vidro] .cabBarra::before {
+  background-color: rgb(255 255 255 / 0.72);
+  box-shadow:
+    0 0 0 1px rgb(11 16 32 / 0.08),
+    0 12px 30px -18px rgb(11 16 32 / 0.35);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  transform: scale(1);
+}
+
+/* os atalhos pras seções, no meio da barra (só no computador) */
+.cabLinks {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .cabLinks {
+    position: absolute;
+    left: 50%;
+    display: flex;
+    gap: 28px;
+    transform: translateX(-50%);
+  }
+}
+
+.cabItem,
+.cabEntrar {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  transition: opacity 200ms ease;
+}
+
+.cabItem:hover,
+.cabEntrar:hover {
+  opacity: 1;
+}
+
+/* o item do menu aberto (e o do mouse) ganha um sublinhado que cresce da esquerda */
+.cabItem {
+  padding: 8px 0;
+  background: linear-gradient(currentColor, currentColor) 0 calc(100% - 4px) / 0% 1px no-repeat;
+  cursor: pointer;
+  transition:
+    opacity 200ms ease,
+    background-size 300ms var(--ease);
+}
+
+.cabItem:hover,
+.cabItem[data-ativo] {
+  opacity: 1;
+  background-size: 100% 1px;
+}
+
+.cabAcoes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.cabBotao {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--azul);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background-color 200ms ease;
+}
+
+.cabBotao:hover {
+  background: var(--azul-hover);
+}
+
+.cabEntrar {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 10px;
+}
+
+/* no telefone o Entrar mora dentro do menu de três tracinhos */
+@media (max-width: 639px) {
+  .cabEntrar {
+    display: none;
+  }
+}
+
+/* ---------- O menu que desce embaixo da barra (modelo: o do Manychat) ---------- */
+
+/* a página escurece atrás; não pega o mouse, quem fecha é sair da barra e do painel */
+.menuFundo {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: rgb(11 16 32 / 0.35);
+  animation: aparecer 300ms ease both;
+  pointer-events: none;
+}
+
+.cabZona {
+  position: relative;
+}
+
+/* o padding de cima faz parte do painel: o mouse atravessa o vão sem fechar o menu */
+.menuPainel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 6px 24px 0;
+  pointer-events: auto;
+}
+
+.menuCaixa {
+  display: flex;
+  justify-content: center;
+  padding: 36px 40px 40px;
+  border-radius: 14px;
+  background: #fff;
+  color: #0b1020;
+  box-shadow: 0 30px 60px -30px rgb(11 16 32 / 0.45);
+  animation: menuAbre 450ms var(--ease) both;
+}
+
+/* cada pedaço sobe 2rem e aparece, um depois do outro (--i = posição) */
+.menuSobe {
+  animation: menuSobe 500ms var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+.menuCartoes {
+  display: flex;
+  gap: 8px;
+}
+
+.menuCartao {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  width: 200px;
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.menuIcone {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: var(--azul);
+  color: #fff;
+}
+
+.menuTitulo,
+.menuLink {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0% 1.5px no-repeat;
+  transition: background-size 300ms var(--ease);
+}
+
+.menuCartao:hover .menuTitulo,
+.menuCartao:focus-visible .menuTitulo,
+.menuLink:hover,
+.menuLink:focus-visible {
+  background-size: 100% 1.5px;
+}
+
+.menuDescricao {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #4f5a6e;
+}
+
+.menuColunas {
+  display: flex;
+}
+
+.menuColuna {
+  min-width: 200px;
+  padding: 0 32px;
+}
+
+.menuColuna + .menuColuna {
+  border-left: 1px solid rgb(11 16 32 / 0.1);
+}
+
+.menuRotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4f5a6e;
+}
+
+.menuColuna ul {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+/* ---------- No telefone: três tracinhos e o menu de tela cheia ---------- */
+
+.cabTracinhos {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+@media (min-width: 1024px) {
+  .cabTracinhos,
+  .gaveta {
+    display: none;
+  }
+}
+
+.gaveta {
+  position: fixed;
+  inset: 0;
+  z-index: -2; /* abaixo do vidro da barra (-1): o que rola por baixo dela fica borrado */
+  overflow-y: auto;
+  padding: 88px 24px 32px;
+  color: #0b1020;
+  pointer-events: auto;
+}
+
+/* o fundo desce do topo; os grupos sobem logo depois */
+.gaveta::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #eef2fa;
+  transform-origin: top;
+  animation: gavetaDesce 450ms var(--ease) both;
+}
+
+.gaveta .menuSobe {
+  animation-delay: calc(150ms + var(--i, 0) * 50ms);
+}
+
+.gavetaGrupo {
+  padding: 18px 0;
+  border-top: 1px solid rgb(11 16 32 / 0.1);
+}
+
+.gavetaGrupo:first-child {
+  border-top: 0;
+}
+
+.gavetaSub {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4f5a6e;
+}
+
+.gavetaLinks {
+  display: grid;
+  margin-top: 6px;
+}
+
+.gavetaLink {
+  display: block;
+  padding: 5px 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.gavetaRodape {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gavetaBotao {
+  justify-content: center;
+  height: 52px;
+  font-size: 14px;
+}
+
+.gavetaEntrar {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border: 1px solid rgb(11 16 32 / 0.2);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* o nome recolhe e fica só o ícone */
+.cabNome {
+  display: inline-block;
+  max-width: 7em;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  transition:
+    max-width 450ms var(--ease),
+    opacity 300ms ease;
+}
+
+.cab[data-rolou] .cabNome {
+  max-width: 0;
+  opacity: 0;
+}
+
+/* tela bem estreita: só o ícone, pra caber o botão e o Entrar */
+@media (max-width: 379px) {
+  .cabNome {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+
+/* =================================================================== hero */
+
+.secao {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip; /* as palavras gigantes passam da tela; clip não vira contêiner de rolagem */
+  padding-top: 64px; /* o cabeçalho é fixo, por cima */
+  background: radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--azul) 22%, transparent), transparent 70%);
+}
+
+/* a luz azul segue o mouse com atraso (--lx/--ly vêm do LuzDoCursor; no celular, do toque) */
+.secao::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 640px;
+  height: 640px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 30%, transparent), transparent);
+  transform: translate3d(calc(var(--lx, 72vw) - 50%), calc(var(--ly, 440px) - 50%), 0);
+  transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .secao::before {
+    width: 420px;
+    height: 420px;
+    transform: translate3d(calc(var(--lx, 50vw) - 50%), calc(var(--ly, 760px) - 50%), 0);
+  }
+}
+
+.heroGrid {
+  position: relative;
+  display: grid;
+  gap: 48px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+}
+
+@media (min-width: 640px) {
+  .heroGrid {
+    padding-inline: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: center;
+    /* sem a foto do Manychat, a tela cheia sobrava vazia: o hero vai até 720px */
+    min-height: min(calc(100svh - 64px), 720px);
+    padding-block: 48px;
+  }
+}
+
+/* ---------- As palavras que as pessoas comentam, gigantes e apagadas, atrás do hero ---------- */
+
+.palavras {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: -1;
+  height: 100svh;
+  min-height: 560px;
+  display: grid;
+  align-content: center;
+  gap: 0.06em;
+  font-size: clamp(56px, 11vw, 168px);
+  pointer-events: none;
+  user-select: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+
+.palavrasLinha {
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  color: color-mix(in srgb, var(--texto) 5%, transparent);
+  /* anda só com a rolagem (--rolagem vem do JS); parada, fica no --inicio */
+  transform: translate3d(calc(var(--inicio) + var(--rolagem, 0) * var(--vel) * 1px), 0, 0);
+  will-change: transform;
+}
+
+.palavrasLinha span {
+  padding-right: 0.45em;
+}
+
+/* a fileira do meio é só contorno: dá profundidade entre as duas cheias */
+.palavrasContorno {
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--texto) 11%, transparent);
+}
+
+/* no telefone o hero ocupa a tela toda: as palavras ficam mais apagadas atrás do botão */
+@media (max-width: 1023px) {
+  .palavrasLinha {
+    color: color-mix(in srgb, var(--texto) 3.5%, transparent);
+  }
+  .palavrasContorno {
+    color: transparent;
+    -webkit-text-stroke-color: color-mix(in srgb, var(--texto) 8%, transparent);
+  }
+}
+
+/* ---------- A conversa em loop ao lado do título ---------- */
+
+.bolhas {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  position: relative;
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
+}
+
+.bolha {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 24px 48px -24px rgb(11 16 32 / 0.3);
+  opacity: 0;
+  animation-duration: 9s;
+  animation-timing-function: var(--ease);
+  animation-iteration-count: infinite;
+}
+
+.bolhaComentario {
+  justify-self: start;
+  max-width: 300px;
+  border: 1px solid var(--borda);
+  background: #fff;
+  animation-name: bolha1;
+}
+
+.bolhaComentario p {
+  display: grid;
+}
+
+.bolhaPalavra {
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.bolhaDm {
+  justify-self: end;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 300px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 22px 22px 8px 22px;
+  background: var(--azul);
+  color: #fff;
+  animation-name: bolha2;
+}
+
+.bolhaDe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 0;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.bolhaDm p {
+  padding: 0 14px;
+}
+
+.bolhaBotao {
+  display: block;
+  align-self: stretch;
+  padding: 10px 14px;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.14);
+  text-align: center;
+  font-weight: 700;
+}
+
+.bolhaResposta {
+  justify-self: start;
+  align-items: center;
+  max-width: 260px;
+  border-radius: 22px 22px 22px 8px;
+  border: 1px solid var(--borda);
+  background: #fff;
+  animation-name: bolha3;
+}
+
+/* =================================================================== faixa de prova */
+
+.prova {
+  position: relative;
+  display: grid;
+  border-block: 1px solid var(--borda);
+  background: rgb(255 255 255 / 0.5);
+}
+
+@media (min-width: 768px) {
+  .prova {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
+.provaRotulo {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.provaRotulo h2 {
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.provaRotulo p {
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  color: var(--suave);
+}
+
+@media (min-width: 768px) {
+  .provaRotulo {
+    padding: 20px 24px;
+    border-bottom: 0;
+    border-right: 1px solid var(--borda);
+  }
+}
+
+.provaFita {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.provaJanela {
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 96px), transparent calc(100% - 56px));
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 96px), transparent calc(100% - 56px));
+}
+
+.provaItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 76px;
+  padding: 0 28px;
+  border-right: 1px solid var(--borda);
+  white-space: nowrap;
+}
+
+.provaPalavra {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--azul) 12%, transparent);
+  color: var(--azul-claro);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.provaDado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.provaPausa {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--borda-forte);
+  background: var(--superficie);
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.provaPausa:hover {
+  border-color: var(--azul-claro);
+}
+
+/* =================================================================== título que sobe ao aparecer */
+
+.revela {
+  transition:
+    opacity 800ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.revela[data-oculto] {
+  opacity: 0;
+  transform: translateY(2.5rem);
+}
+
+/* =================================================================== capítulos (seção azul presa) */
+
+.cap {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-cena: 520ms;
+  --alt-celular: 612px;
+  --zoom: 0.5; /* o celular encolhe no telefone; o tamanho de verdade está em .celular */
+  position: relative;
+  isolation: isolate;
+  background: var(--azul);
+  color: #fff;
+}
+
+/* quadriculado branco bem fraco, que some nas bordas */
+.cap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(80% 70% at 50% 50%, #000, transparent);
+  mask-image: radial-gradient(80% 70% at 50% 50%, #000, transparent);
+  pointer-events: none;
+}
+
+/* o trilho alto: a altura é o que a rolagem percorre enquanto o palco fica preso */
+.capTrilho {
+  height: calc(100svh - 64px + var(--unidades) * 70svh);
+}
+
+.capPalco {
+  position: sticky;
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  height: calc(100svh - 64px);
+  overflow: hidden;
+  padding: 12px 16px 16px;
+}
+
+.capTexto {
+  order: 2;
+}
+
+.capLado {
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.capTracos {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.capTracos span {
+  width: 22px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+  transition:
+    width 400ms var(--ease),
+    background-color 400ms var(--ease);
+}
+
+.capTracos span[data-ativo] {
+  width: 44px;
+  background: #fff;
+}
+
+/* os capítulos ficam todos no mesmo lugar: só o de agora aparece */
+.capLista {
+  display: grid;
+}
+
+.capItem {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 450ms var(--ease),
+    transform 450ms var(--ease);
+  pointer-events: none;
+}
+
+.capItem[data-ativo] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.capItemTitulo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.capItemTexto {
+  margin-top: 10px;
+  max-width: 44ch;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgb(255 255 255 / 0.84);
+}
+
+.capBotao {
+  display: none;
+}
+
+.capEtiqueta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: max(220px, calc(300px * var(--zoom)));
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #07090c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.capEtiqueta b {
+  color: var(--azul-claro);
+  font-variant-numeric: tabular-nums;
+}
+
+.capLegenda {
+  position: relative;
+  padding: 0 16px 20px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: rgb(255 255 255 / 0.82);
+}
+
+.cap .celular {
+  box-shadow:
+    0 50px 100px -40px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+@media (max-width: 1023px) and (min-height: 780px) {
+  .cap {
+    --zoom: 0.56;
+  }
+}
+
+@media (max-width: 1023px) and (min-height: 900px) {
+  .cap {
+    --zoom: 0.62;
+  }
+}
+
+@media (max-width: 1023px) and (max-height: 680px) {
+  .cap {
+    --zoom: 0.42;
+  }
+  .capItemTexto {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+}
+
+/* No computador: texto à esquerda, celular à direita, os dois no meio da tela. */
+@media (min-width: 1024px) {
+  .cap {
+    --zoom: 1;
+  }
+  .capTrilho {
+    height: calc(100svh - 64px + var(--unidades) * 85svh);
+  }
+  .capPalco {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    align-items: center;
+    column-gap: 64px;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .capTexto,
+  .capLado {
+    order: 0;
+  }
+  .capTracos {
+    margin-bottom: 28px;
+  }
+  .capItemTitulo {
+    font-size: 2.75rem;
+  }
+  .capItemTexto {
+    margin-top: 16px;
+    font-size: 1.125rem;
+  }
+  .capBotao {
+    display: inline-flex;
+    align-items: center;
+    height: 52px;
+    margin-top: 36px;
+    padding: 0 28px;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--azul);
+    font-weight: 700;
+    box-shadow: 0 16px 32px -16px rgb(0 0 0 / 0.6);
+    transition: background-color 150ms ease;
+  }
+  .capBotao:hover {
+    background: #e8eeff;
+  }
+  .capEtiqueta {
+    width: 300px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 780px) {
+  .cap {
+    --zoom: 0.84;
+  }
+  .capEtiqueta {
+    width: calc(300px * var(--zoom));
+  }
+}
+
+/* =================================================================== o celular */
+
+.celular {
+  zoom: var(--zoom);
+  width: 300px;
+  height: var(--alt-celular);
+  padding: 10px;
+  border-radius: 46px;
+  border: 1px solid var(--borda-forte);
+  background: linear-gradient(160deg, #141a24, #05070a 45%);
+  box-shadow:
+    0 50px 100px -40px color-mix(in srgb, var(--azul) 60%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+.tela {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 36px;
+  background: #0b0e13;
+  color: var(--texto);
+  font-size: 12.5px;
+  line-height: 1.38;
+}
+
+.tela b {
+  font-weight: 650;
+}
+
+.barraStatus {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 34px;
+  padding: 0 24px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ilha {
+  width: 84px;
+  height: 22px;
+  border-radius: 999px;
+  background: #000;
+}
+
+.bateria {
+  width: 22px;
+  height: 10px;
+  padding: 1px;
+  border-radius: 3px;
+  border: 1.5px solid rgb(232 237 245 / 0.75);
+  background: linear-gradient(90deg, rgb(232 237 245 / 0.75) 70%, transparent 70%) content-box;
+}
+
+.cenas {
+  position: absolute;
+  inset: 34px 0 0 0;
+}
+
+/* As três telas ficam uma do lado da outra: a de agora no lugar, a próxima entra pela direita. */
+.cena {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #0b0e13;
+  transition:
+    transform var(--dur-cena) var(--ease),
+    opacity var(--dur-cena) var(--ease);
+}
+
+.cena[data-pos="antes"] {
+  transform: translateX(-30%);
+  opacity: 0;
+}
+
+.cena[data-pos="depois"] {
+  transform: translateX(100%);
+}
+
+/* ---------- Tela 1: o post ---------- */
+
+.igTopo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 8px;
+}
+
+.igMais {
+  margin-left: auto;
+  color: var(--suave);
+  letter-spacing: 1px;
+}
+
+.igFoto {
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: var(--superficie-3);
+}
+
+.igAcoes {
+  display: flex;
+  gap: 13px;
+  padding: 9px 12px 7px;
+}
+
+.igSalvar {
+  margin-left: auto;
+}
+
+.igTexto {
+  display: grid;
+  gap: 3px;
+  padding: 0 12px 4px;
+}
+
+.igMeta {
+  color: var(--apagado);
+  font-size: 10.5px;
+}
+
+.avatarAna {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f58529, #dd2a7b 60%, #8134af);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.avatarOutra {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.comentario {
+  display: flex;
+  gap: 8px;
+  padding: 6px 12px;
+  animation: chega 450ms var(--ease) both;
+}
+
+/* o comentário que acabou de chegar brilha um instante */
+.comentarioNovo {
+  animation:
+    chega 450ms var(--ease) both,
+    realce 1.8s ease 100ms both;
+}
+
+.comentarioResposta {
+  padding-left: 46px;
+}
+
+.seloGatlo {
+  display: inline-flex;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--azul) 24%, transparent);
+  color: var(--azul-claro);
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+/* a notificação do Instagram desce, fica um pouco e sobe */
+.notificacao {
+  position: absolute;
+  z-index: 4;
+  left: 8px;
+  right: 8px;
+  top: 38px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgb(38 42 51 / 0.94);
+  box-shadow: 0 14px 30px -12px #000;
+  font-size: 11.5px;
+  animation: notifica 3.4s var(--ease) both;
+}
+
+/* ---------- Tela 2: o direct ---------- */
+
+.dmTopo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 10px;
+  border-bottom: 1px solid rgb(255 255 255 / 0.06);
+}
+
+.dmTopo small {
+  display: block;
+  color: var(--apagado);
+  font-size: 10.5px;
+}
+
+.dmFio {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 12px;
+  overflow: hidden;
+}
+
+.dmContexto {
+  display: grid;
+  align-self: center;
+  margin-bottom: 8px;
+  text-align: center;
+  color: var(--apagado);
+  font-size: 10.5px;
+}
+
+.dmContexto span {
+  color: var(--suave);
+}
+
+.balaoMeu {
+  align-self: flex-end;
+  max-width: 82%;
+  overflow: hidden;
+  border-radius: 18px 18px 6px 18px;
+  background: var(--azul);
+  color: #fff;
+  animation: chegaDireita 450ms var(--ease) both;
+}
+
+.balaoMeu p {
+  padding: 9px 12px;
+}
+
+.balaoBotao {
+  display: block;
+  padding: 8px 12px;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.14);
+  text-align: center;
+  font-weight: 700;
+}
+
+/* "Enviando…" e "Enviado" ocupam o mesmo lugar: um some quando o outro chega */
+.dmStatus {
+  display: grid;
+  align-self: flex-end;
+  color: var(--suave);
+  font-size: 10.5px;
+}
+
+.dmStatus > * {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: end;
+}
+
+.enviando {
+  animation: sumir 0s linear 1.2s forwards;
+}
+
+.enviado {
+  opacity: 0;
+  animation: aparecer 300ms ease 1.2s forwards;
+}
+
+.visto {
+  animation: aparecer 300ms ease both;
+}
+
+/* "digitando…" e a resposta dela também dividem o lugar */
+.respostaDela {
+  display: grid;
+  margin-top: 10px;
+}
+
+.respostaDela > * {
+  grid-area: 1 / 1;
+}
+
+.digitando {
+  justify-self: start;
+  display: flex;
+  gap: 4px;
+  margin-left: 32px;
+  padding: 11px 12px;
+  border-radius: 18px;
+  background: #262a33;
+  opacity: 0;
+  animation:
+    aparecer 250ms ease 500ms forwards,
+    sumir 0s linear 1.9s forwards;
+}
+
+.digitando span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--suave);
+  animation: pula 1s ease-in-out infinite;
+}
+
+.digitando span:nth-child(2) {
+  animation-delay: 150ms;
+}
+
+.digitando span:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+.balaoDela {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  opacity: 0;
+  animation: chegaEsquerda 400ms var(--ease) 1.95s forwards;
+}
+
+.balaoDela p {
+  max-width: 78%;
+  padding: 9px 12px;
+  border-radius: 18px 18px 18px 6px;
+  background: #262a33;
+}
+
+.dmCampo {
+  margin: 0 10px 14px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  color: var(--apagado);
+}
+
+/* ---------- Tela 3: o painel do Gatlo AI ---------- */
+
+.gTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 14px 12px;
+}
+
+.gTopoRotulo {
+  color: var(--suave);
+  font-size: 11px;
+}
+
+.gCartao {
+  margin: 0 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+}
+
+.gLinhaTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gPalavra {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--azul) 22%, transparent);
+  color: var(--azul-claro);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.gAtiva {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--verde);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gAtiva i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--verde);
+  box-shadow: 0 0 10px var(--verde);
+}
+
+.gSub {
+  margin-top: 6px;
+  color: var(--suave);
+  font-size: 11px;
+}
+
+.gNumeros {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 10px 12px 0;
+}
+
+.gNumero {
+  padding: 10px 11px;
+  border-radius: 14px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+}
+
+.gNumero small {
+  display: block;
+  color: var(--suave);
+  font-size: 10.5px;
+}
+
+.gNumero b {
+  display: block;
+  margin-top: 2px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.gNumero[data-destaque] {
+  border-color: color-mix(in srgb, var(--azul) 55%, transparent);
+  background: color-mix(in srgb, var(--azul) 12%, var(--superficie));
+}
+
+.gLista {
+  margin: 12px 12px 0;
+}
+
+.gPessoa {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--borda);
+  background: var(--superficie);
+  animation: chega 450ms var(--ease) both;
+}
+
+.gPessoa small {
+  display: block;
+  color: var(--suave);
+  font-size: 10.5px;
+}
+
+.gClicou {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--verde) 16%, transparent);
+  color: var(--verde);
+  font-size: 10.5px;
+  font-weight: 700;
+  animation: pulso 1.2s ease 400ms 2;
+}
+
+.gFila {
+  display: grid;
+  gap: 10px;
+  margin: 14px 12px 0;
+}
+
+.gBarra {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--superficie-3);
+}
+
+.gBarra span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--azul), var(--azul-claro));
+  transform-origin: left;
+  transition: transform 200ms linear;
+}
+
+.gPausa,
+.gRetomou,
+.gNormal {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  animation: chega 300ms var(--ease) both;
+}
+
+.gPausa {
+  border: 1px solid color-mix(in srgb, var(--amarelo) 32%, transparent);
+  background: color-mix(in srgb, var(--amarelo) 10%, transparent);
+  color: var(--amarelo);
+}
+
+.gRetomou {
+  border: 1px solid color-mix(in srgb, var(--verde) 30%, transparent);
+  background: color-mix(in srgb, var(--verde) 10%, transparent);
+  color: var(--verde);
+}
+
+.gNormal {
+  border: 1px solid var(--borda);
+  color: var(--suave);
+}
+
+/* =================================================================== antes e depois */
+
+.adTrilho {
+  padding: 96px 16px 72px;
+}
+
+.adPalco {
+  display: grid;
+  gap: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* a frase do título vira marca d'água: no telefone, em cima dos cartões */
+.adMarca {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 8px;
+  font-size: 10vw;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1.2px color-mix(in srgb, var(--texto) 16%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+.adCartao {
+  padding: 28px 24px;
+  border-radius: 28px;
+  will-change: transform;
+}
+
+.adSem {
+  border: 1px solid var(--borda);
+  background: var(--superficie-2);
+}
+
+.adCom {
+  position: relative;
+  background: var(--azul);
+  color: #fff;
+  box-shadow: 0 40px 80px -40px rgb(11 16 32 / 0.45);
+}
+
+.adRotulo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--suave);
+}
+
+.adCom .adRotulo {
+  color: rgb(255 255 255 / 0.85);
+}
+
+.adTitulo {
+  margin-top: 6px;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.adTituloLaco {
+  position: relative;
+  display: inline-block;
+}
+
+/* o laço desenhado à mão em volta do título (no telefone já nasce desenhado) */
+.laco {
+  position: absolute;
+  left: -7%;
+  top: -34%;
+  width: 114%;
+  height: 168%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.laco path {
+  fill: none;
+  stroke: var(--amarelo);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.adLista {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.adLista li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.adLista li svg {
+  margin-top: 3px;
+}
+
+.adBotao {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  margin-top: 26px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--azul);
+  font-weight: 700;
+  transition: background-color 150ms ease;
+}
+
+.adBotao:hover {
+  background: #e8eeff;
+}
+
+/* No computador: os dois cartões ficam presos e a rolagem (--p) junta os dois. */
+@media (min-width: 1024px) {
+  .adTrilho {
+    --p: 0;
+    height: 210svh;
+    margin-top: 48px;
+    padding: 0 24px;
+  }
+  /* no computador: uma linha em cima e outra embaixo dos cartões, que se juntam por cima dela */
+  .adMarca {
+    position: absolute;
+    inset: 0;
+    align-content: space-between;
+    margin: 0;
+    padding-block: 2svh;
+    font-size: min(9vw, 16svh);
+    -webkit-text-stroke-width: 1.5px;
+    -webkit-text-stroke-color: color-mix(in srgb, var(--texto) 12%, transparent);
+  }
+  .adPalco {
+    position: sticky;
+    top: 64px;
+    grid-template-columns: repeat(2, minmax(0, 420px));
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+    max-width: none;
+    height: calc(100svh - 64px);
+  }
+  .adCartao {
+    padding: 36px 32px;
+  }
+  .adTitulo {
+    font-size: 2.5rem;
+  }
+  /* o "sem" encolhe e anda pra direita; o "com" anda pra esquerda e fica por cima */
+  .adSem {
+    transform: translateX(calc(var(--p) * (50% + 16px))) scale(calc(1 - var(--p) * 0.15));
+    opacity: calc(1 - var(--p) * 0.45);
+  }
+  .adCom {
+    z-index: 1;
+    transform: translateX(calc(var(--p) * (-50% - 16px)));
+  }
+  .laco path {
+    stroke-dashoffset: calc(1 - clamp(0, (var(--p) - 0.55) * 2.6, 1));
+  }
+}
+
+/* =================================================================== a faixa com as funções */
+
+.faixa {
+  --altura-fita: 72px;
+  --sobra: 80px; /* quanto a fita passa de cada lado, pra a inclinação não mostrar ponta */
+  position: relative;
+  z-index: 2;
+  overflow-x: clip;
+  padding-block: 28px;
+}
+
+.faixaLuz {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 50%;
+  height: 180px;
+  transform: translateY(-50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 34%, transparent), transparent);
+  pointer-events: none;
+}
+
+.fita {
+  position: relative;
+  width: calc(100% + 2 * var(--sobra));
+  margin-left: calc(-1 * var(--sobra));
+  transform: rotate(-2deg);
+  border-block: 1px solid color-mix(in srgb, var(--azul-claro) 20%, transparent);
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.88), rgb(255 255 255 / 0.66));
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 30px 60px -30px rgb(11 16 32 / 0.3);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* fio de luz na borda de cima, mais forte no meio */
+.fita::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--azul-claro) 50%, transparent);
+  pointer-events: none;
+}
+
+.janela {
+  overflow: hidden;
+  --fim: calc(100% - var(--sobra) - 72px);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent var(--sobra),
+    #000 calc(var(--sobra) + 48px),
+    #000 calc(var(--fim) - 64px),
+    transparent var(--fim)
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent var(--sobra),
+    #000 calc(var(--sobra) + 48px),
+    #000 calc(var(--fim) - 64px),
+    transparent var(--fim)
+  );
+}
+
+.trilhoFita {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.grupo {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--altura-fita);
+  padding: 0 28px;
+  white-space: nowrap;
+}
+
+.item::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 1px;
+  height: 24px;
+  transform: translateY(-50%);
+  background: color-mix(in srgb, var(--azul-claro) 20%, transparent);
+}
+
+.itemIcone {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--azul-claro) 28%, transparent);
+  background: color-mix(in srgb, var(--azul) 16%, transparent);
+  color: var(--azul-claro);
+}
+
+.itemNome {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.itemTexto {
+  color: var(--suave);
+  font-size: 14px;
+}
+
+@media (max-width: 639px) {
+  .itemTexto {
+    display: none;
+  }
+  .item {
+    padding: 0 20px;
+  }
+}
+
+.pausa {
+  position: absolute;
+  right: calc(var(--sobra) + 16px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--azul-claro) 25%, transparent);
+  background: var(--superficie);
+  color: var(--texto);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.pausa:hover {
+  border-color: var(--azul-claro);
+}
+
+/* =================================================================== marca d'água das seções */
+
+.comMarca {
+  position: relative;
+  isolation: isolate;
+  overflow-x: clip;
+}
+
+.marca {
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -22%);
+  font-size: clamp(88px, 17vw, 240px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1.5px color-mix(in srgb, var(--texto) 9%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* =================================================================== cartões com borda de luz */
+
+.cartaoLuz {
+  position: relative;
+  border-radius: 24px;
+  border: 1px solid var(--borda);
+  background:
+    linear-gradient(160deg, rgb(255 255 255 / 0.6), transparent 45%),
+    var(--superficie);
+}
+
+/* O elemento precisa de data-luz (o LuzDoCursor escreve --lx/--ly). A borda é um anel de 1px
+   recortado por máscara: só a moldura acende, nunca o texto de dentro. */
+.cartaoLuz::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  padding: 1px;
+  border-radius: inherit;
+  background: radial-gradient(
+    280px circle at var(--lx, 50%) var(--ly, 0%),
+    color-mix(in srgb, var(--azul-claro) 75%, transparent),
+    transparent 70%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+
+.cartaoLuz[data-luz-ativa]::after {
+  opacity: 1;
+}
+
+/* o cartão do preço leva o azul de canto (o CSS do módulo ganha das classes do Tailwind) */
+.cartaoPreco {
+  border-color: color-mix(in srgb, var(--azul) 32%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--azul) 22%, var(--superficie)), var(--superficie) 55%);
+}
+
+/* =================================================================== a palavra gigante do fim */
+
+.gigante {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  padding-top: 16px;
+}
+
+.gigante > p {
+  grid-area: 1 / 1;
+  margin-bottom: -0.3em; /* a metade de baixo fica fora: o fim da página corta as letras */
+  font-size: clamp(5rem, 21vw, 19rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.055em;
+  text-align: center;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  user-select: none;
+  pointer-events: none;
+}
+
+.giganteApagado {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--texto) 15%, transparent), transparent 82%);
+}
+
+/* acende em azul onde o mouse passa, com a mesma luz dos cartões */
+.giganteAceso {
+  background-image: linear-gradient(180deg, var(--azul-claro), color-mix(in srgb, var(--azul) 35%, transparent) 85%);
+  -webkit-mask-image: radial-gradient(circle 240px at var(--lx, -999px) var(--ly, -999px), #000, transparent);
+  mask-image: radial-gradient(circle 240px at var(--lx, -999px) var(--ly, -999px), #000, transparent);
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.gigante[data-luz-ativa] .giganteAceso {
+  opacity: 1;
+}
+
+/* =================================================================== animações */
+
+@keyframes chega {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes chegaDireita {
+  from {
+    opacity: 0;
+    transform: translate(10px, 6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes chegaEsquerda {
+  from {
+    opacity: 0;
+    transform: translate(-10px, 6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes realce {
+  from {
+    background: color-mix(in srgb, var(--azul) 26%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+
+@keyframes aparecer {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes menuAbre {
+  from {
+    clip-path: inset(0 0 100% 0 round 14px);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 14px);
+  }
+}
+
+@keyframes menuSobe {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+}
+
+@keyframes gavetaDesce {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes sumir {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes pula {
+  0%,
+  60%,
+  100% {
+    transform: none;
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}
+
+@keyframes pulso {
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--verde) 18%, transparent);
+  }
+}
+
+@keyframes notifica {
+  0% {
+    transform: translateY(-160%);
+  }
+  12%,
+  84% {
+    transform: none;
+  }
+  100% {
+    transform: translateY(-160%);
+  }
+}
+
+/* a conversa do hero: cada balão entra na sua vez, os três ficam e saem juntos */
+@keyframes bolha1 {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  6%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bolha2 {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  22%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bolha3 {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  44%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* =================================================================== sem movimento */
+
+@media (prefers-reduced-motion: reduce) {
+  .cab,
+  .cabBarra::before,
+  .cabItem,
+  .menuTitulo,
+  .menuLink,
+  .secao::before,
+  .cabNome,
+  .cena,
+  .capItem,
+  .capTracos span,
+  .gBarra span,
+  .revela {
+    transition: none;
+  }
+  .menuFundo,
+  .menuCaixa,
+  .menuSobe,
+  .gaveta::before,
+  .comentario,
+  .comentarioNovo,
+  .balaoMeu,
+  .visto,
+  .gPessoa,
+  .gClicou,
+  .gPausa,
+  .gRetomou,
+  .gNormal,
+  .digitando span {
+    animation: none;
+  }
+  /* a conversa do hero fica parada, com os três balões */
+  .bolha {
+    opacity: 1;
+    animation: none;
+  }
+  /* a sequência do direct já nasce no fim: "Enviado" e a resposta dela */
+  .enviando,
+  .digitando,
+  .notificacao {
+    display: none;
+  }
+  .enviado,
+  .balaoDela {
+    opacity: 1;
+    animation: none;
+  }
+  /* antes e depois: lado a lado, com o laço já desenhado */
+  .adSem,
+  .adCom {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .laco path {
+    stroke-dashoffset: 0 !important;
+  }
+  /* as faixas deitam e mostram tudo, parado */
+  .fita {
+    width: 100%;
+    margin-left: 0;
+    transform: none;
+  }
+  .janela,
+  .provaJanela {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .trilhoFita {
+    width: auto;
+    justify-content: center;
+  }
+  .grupo {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 8px 16px;
+  }
+  .grupo + .grupo,
+  .pausa,
+  .provaPausa,
+  .item::after {
+    display: none;
+  }
+  .item,
+  .provaItem {
+    height: auto;
+    min-height: 56px;
+    white-space: normal;
+  }
+}

@@ -23,6 +23,11 @@ function Base({ className, titulo, children }: P & { children: React.ReactNode }
   );
 }
 
+export const IconeMenu = (p: P) => (
+  <Base {...p}>
+    <path d="M4 9h16M4 15h16" />
+  </Base>
+);
 export const IconeCasa = (p: P) => (
   <Base {...p}>
     <path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" />
