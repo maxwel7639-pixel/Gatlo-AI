@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PRODUTO } from "@/lib/config";
 
-/** A marca: o balão com o raio + o nome que vem de lib/config.ts. */
+/** A marca: o "G" azul (public/marca/icone-192.png) + o nome que vem de lib/config.ts. */
 export function Logo({
   tamanho = "md",
   href = "/",
@@ -15,11 +15,8 @@ export function Logo({
   const icone = tamanho === "sm" ? "size-7" : "size-8";
   const conteudo = (
     <span className="inline-flex items-center gap-2.5">
-      <svg viewBox="0 0 64 64" className={icone} aria-hidden>
-        <rect width="64" height="64" rx="16" fill="#1E50F0" />
-        <path d="M17 20a6 6 0 0 1 6-6h18a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H29l-8 7v-7.4A6 6 0 0 1 17 34z" fill="#fff" />
-        <path d="M34 18.5 26 30h6l-2 9.5L38 28h-6z" fill="#1E50F0" />
-      </svg>
+      {/* eslint-disable-next-line @next/next/no-img-element -- sem otimizador de imagem de propósito (next.config.ts) */}
+      <img src="/marca/icone-192.png" alt="" width={192} height={192} className={icone} />
       <span className={`font-bold tracking-tight ${tamanho === "sm" ? "text-lg" : "text-xl"} ${classeNome}`}>
         {PRODUTO.nome}
       </span>
