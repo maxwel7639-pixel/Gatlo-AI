@@ -57,11 +57,12 @@
     transform 600ms var(--ease);
 }
 
-.cab[data-rolou] {
+/* vidro: rolou, ou um menu está aberto */
+.cab[data-vidro] {
   color: #0b1020;
 }
 
-.cab[data-rolou] .cabBarra::before {
+.cab[data-vidro] .cabBarra::before {
   background-color: rgb(236 241 250 / 0.88);
   -webkit-backdrop-filter: blur(40px) saturate(160%);
   backdrop-filter: blur(40px) saturate(160%);
@@ -83,7 +84,7 @@
   }
 }
 
-.cabLinks a,
+.cabItem,
 .cabEntrar {
   font-size: 13px;
   font-weight: 600;
@@ -93,9 +94,25 @@
   transition: opacity 200ms ease;
 }
 
-.cabLinks a:hover,
+.cabItem:hover,
 .cabEntrar:hover {
   opacity: 1;
+}
+
+/* o item do menu aberto (e o do mouse) ganha um sublinhado que cresce da esquerda */
+.cabItem {
+  padding: 8px 0;
+  background: linear-gradient(currentColor, currentColor) 0 calc(100% - 4px) / 0% 1px no-repeat;
+  cursor: pointer;
+  transition:
+    opacity 200ms ease,
+    background-size 300ms var(--ease);
+}
+
+.cabItem:hover,
+.cabItem[data-ativo] {
+  opacity: 1;
+  background-size: 100% 1px;
 }
 
 .cabAcoes {
@@ -130,6 +147,227 @@
   align-items: center;
   height: 44px;
   padding: 0 10px;
+}
+
+/* no telefone o Entrar mora dentro do menu de três tracinhos */
+@media (max-width: 639px) {
+  .cabEntrar {
+    display: none;
+  }
+}
+
+/* ---------- O menu que desce embaixo da barra (modelo: o do Manychat) ---------- */
+
+/* a página escurece atrás; não pega o mouse, quem fecha é sair da barra e do painel */
+.menuFundo {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: rgb(4 6 12 / 0.5);
+  animation: aparecer 300ms ease both;
+  pointer-events: none;
+}
+
+.cabZona {
+  position: relative;
+}
+
+/* o padding de cima faz parte do painel: o mouse atravessa o vão sem fechar o menu */
+.menuPainel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  padding: 6px 24px 0;
+  pointer-events: auto;
+}
+
+.menuCaixa {
+  display: flex;
+  justify-content: center;
+  padding: 36px 40px 40px;
+  border-radius: 14px;
+  background: #f4f7fd;
+  color: #0b1020;
+  box-shadow: 0 30px 60px -30px rgb(0 0 0 / 0.6);
+  animation: menuAbre 450ms var(--ease) both;
+}
+
+/* cada pedaço sobe 2rem e aparece, um depois do outro (--i = posição) */
+.menuSobe {
+  animation: menuSobe 500ms var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+.menuCartoes {
+  display: flex;
+  gap: 8px;
+}
+
+.menuCartao {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
+  width: 200px;
+  padding: 12px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.menuIcone {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: var(--azul);
+  color: #fff;
+}
+
+.menuTitulo,
+.menuLink {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0% 1.5px no-repeat;
+  transition: background-size 300ms var(--ease);
+}
+
+.menuCartao:hover .menuTitulo,
+.menuCartao:focus-visible .menuTitulo,
+.menuLink:hover,
+.menuLink:focus-visible {
+  background-size: 100% 1.5px;
+}
+
+.menuDescricao {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #4f5a6e;
+}
+
+.menuColunas {
+  display: flex;
+}
+
+.menuColuna {
+  min-width: 200px;
+  padding: 0 32px;
+}
+
+.menuColuna + .menuColuna {
+  border-left: 1px solid rgb(11 16 32 / 0.1);
+}
+
+.menuRotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4f5a6e;
+}
+
+.menuColuna ul {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+/* ---------- No telefone: três tracinhos e o menu de tela cheia ---------- */
+
+.cabTracinhos {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+
+@media (min-width: 1024px) {
+  .cabTracinhos,
+  .gaveta {
+    display: none;
+  }
+}
+
+.gaveta {
+  position: fixed;
+  inset: 0;
+  z-index: -2; /* abaixo do vidro da barra (-1): o que rola por baixo dela fica borrado */
+  overflow-y: auto;
+  padding: 88px 24px 32px;
+  color: #0b1020;
+  pointer-events: auto;
+}
+
+/* o fundo desce do topo; os grupos sobem logo depois */
+.gaveta::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: #eef2fa;
+  transform-origin: top;
+  animation: gavetaDesce 450ms var(--ease) both;
+}
+
+.gaveta .menuSobe {
+  animation-delay: calc(150ms + var(--i, 0) * 50ms);
+}
+
+.gavetaGrupo {
+  padding: 18px 0;
+  border-top: 1px solid rgb(11 16 32 / 0.1);
+}
+
+.gavetaGrupo:first-child {
+  border-top: 0;
+}
+
+.gavetaSub {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4f5a6e;
+}
+
+.gavetaLinks {
+  display: grid;
+  margin-top: 6px;
+}
+
+.gavetaLink {
+  display: block;
+  padding: 5px 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.gavetaRodape {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gavetaBotao {
+  justify-content: center;
+  height: 52px;
+  font-size: 14px;
+}
+
+.gavetaEntrar {
+  display: grid;
+  place-items: center;
+  height: 52px;
+  border: 1px solid rgb(11 16 32 / 0.2);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 /* o nome recolhe e fica só o ícone */
@@ -1729,6 +1967,28 @@
   }
 }
 
+@keyframes menuAbre {
+  from {
+    clip-path: inset(0 0 100% 0 round 14px);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 14px);
+  }
+}
+
+@keyframes menuSobe {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+}
+
+@keyframes gavetaDesce {
+  from {
+    transform: scaleY(0);
+  }
+}
+
 @keyframes sumir {
   to {
     opacity: 0;
@@ -1827,6 +2087,9 @@
 @media (prefers-reduced-motion: reduce) {
   .cab,
   .cabBarra::before,
+  .cabItem,
+  .menuTitulo,
+  .menuLink,
   .secao::before,
   .cabNome,
   .cena,
@@ -1836,6 +2099,10 @@
   .revela {
     transition: none;
   }
+  .menuFundo,
+  .menuCaixa,
+  .menuSobe,
+  .gaveta::before,
   .comentario,
   .comentarioNovo,
   .balaoMeu,
