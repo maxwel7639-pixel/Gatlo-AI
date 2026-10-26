@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { exigirUsuario, COOKIE_SESSAO_LOCAL } from "./auth/sessao";
 import { repo } from "./dados";
-import { usaSupabase } from "./env";
+import { temCartao, temPix, usaSupabase } from "./env";
 import { createAdminClient } from "./supabase/admin";
 import { createClient } from "./supabase/server";
 import { mudar } from "./local/banco";
@@ -13,6 +13,9 @@ import { postsDaConta } from "./instagram";
 import { lerFormulario, type Erros } from "./automacao-validar";
 import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
+import { abrirCheckoutDoServidor } from "./mp-checkout-servidor";
+import { abrirAutorizacaoDoServidor } from "./asaas-servidor";
+import { cancelarEApagar, cancelarPeloBotao } from "./cancelar-servidor";
 
 /**
  * As ações do painel. TODA ação começa com exigirUsuario(): o id do usuário
@@ -146,11 +149,12 @@ export async function excluirConta(_: EstadoExclusao, form: FormData): Promise<E
   }
 
   if (usaSupabase) {
-    const { error } = await createAdminClient().auth.admin.deleteUser(usuario.id);
-    if (error) {
-      console.error("[excluirConta]", error.message);
-      return { erro: "Não consegui excluir agora. Tenta de novo ou escreve pro suporte." };
+    // cancela no gateway ANTES de apagar; se falhar, a conta fica (lib/cancelar-servidor.ts)
+    const r = await cancelarEApagar(usuario.id, async () => (await createAdminClient().auth.admin.deleteUser(usuario.id)).error);
+    if (r === "gateway") {
+      return { erro: "Não consegui cancelar a tua assinatura no gateway, então a conta não foi apagada. Tenta de novo em instantes ou escreve pro suporte." };
     }
+    if (r === "apagar") return { erro: "Não consegui excluir agora. Tenta de novo ou escreve pro suporte." };
     await (await createClient()).auth.signOut();
   } else {
     mudar((b) => {
@@ -168,4 +172,97 @@ export async function excluirConta(_: EstadoExclusao, form: FormData): Promise<E
 
   revalidatePath("/", "layout");
   redirect("/entrar?erro=conta_excluida");
+}
+
+/* --------------------------------------------------------------- assinar */
+
+export type EstadoAssinatura = { erro?: string };
+
+/**
+ * Abre o checkout da assinatura no cartão (Mercado Pago). O preço NÃO vem do
+ * navegador: o servidor lê `regras.preco_mensal_centavos` e manda pro MP. O
+ * robô só é liberado depois que o webhook do MP confirma o pagamento na API
+ * (lib/mp-webhook.ts) — este botão não libera nada sozinho.
+ */
+export async function assinarCartao(): Promise<EstadoAssinatura> {
+  const usuario = await exigirUsuario();
+  if (!usaSupabase) {
+    return { erro: "No modo demonstração não dá pra assinar: aqui não passa cartão de ninguém." };
+  }
+  if (!temCartao) return { erro: "A assinatura no cartão ainda não abriu." };
+  if (!(await dentroDaTaxa(`assinar:${usuario.id}`, 5, 3600))) {
+    return { erro: "Muitas tentativas de assinatura numa hora. Espera um pouco e tenta de novo." };
+  }
+
+  let url: string;
+  try {
+    // O miolo recusa 2º checkout e o preço vem de `regras` no servidor (lib/mp-checkout-servidor.ts).
+    const r = await abrirCheckoutDoServidor(usuario);
+    if ("erro" in r) return r;
+    url = r.url;
+  } catch (e) {
+    console.error("[assinarCartao]", e instanceof Error ? e.message : e);
+    return { erro: "Não deu pra abrir a assinatura agora. Tenta de novo em instantes." };
+  }
+  // O redirect joga a página fora: tem que ficar FORA do try/catch, senão o
+  // Next engole o NEXT_REDIRECT como se fosse erro.
+  redirect(url);
+}
+
+export type EstadoPix = { erro?: string; pix?: { payload: string; imagem: string } };
+
+/**
+ * Abre a autorização do Pix Automático (Asaas) e devolve o QR Code do 1º
+ * pagamento. O preço NÃO vem do navegador: o servidor lê `regras` (lib/asaas-servidor.ts).
+ * O que o formulário manda é só o CPF/CNPJ, conferido no miolo e repassado ao Asaas.
+ * O robô só é liberado depois que o webhook do Asaas confirma a cobrança na API
+ * (lib/asaas-webhook.ts): este botão não libera nada sozinho.
+ */
+export async function assinarPix(_anterior: EstadoPix, formulario: FormData): Promise<EstadoPix> {
+  const usuario = await exigirUsuario();
+  if (!usaSupabase) {
+    return { erro: "No modo demonstração não dá pra assinar: aqui não passa Pix de ninguém." };
+  }
+  if (!temPix) return { erro: "A assinatura no Pix Automático ainda não abriu." };
+  if (!(await dentroDaTaxa(`assinar-pix:${usuario.id}`, 5, 3600))) {
+    return { erro: "Muitas tentativas de assinatura numa hora. Espera um pouco e tenta de novo." };
+  }
+  const bruto = formulario.get("cpfCnpj");
+  const documento = typeof bruto === "string" ? bruto.slice(0, 30) : "";
+
+  try {
+    const r = await abrirAutorizacaoDoServidor(usuario, documento);
+    return "erro" in r ? r : { pix: r };
+  } catch (e) {
+    console.error("[assinarPix]", e instanceof Error ? e.message : e);
+    return { erro: "Não deu pra abrir o Pix Automático agora. Tenta de novo em instantes." };
+  }
+}
+
+export type EstadoCancelamento = { erro?: string; ok?: string };
+
+/**
+ * O botão "cancelar assinatura": pede o cancelamento AO GATEWAY e mais nada. O
+ * nosso banco não muda aqui; vira `cancelada` quando o aviso do gateway chega e o
+ * webhook confere na API. O id cancelado é o guardado no banco, não o do navegador.
+ */
+export async function cancelarAssinatura(): Promise<EstadoCancelamento> {
+  const usuario = await exigirUsuario();
+  if (!usaSupabase) return { erro: "No modo demonstração não tem assinatura pra cancelar." };
+  if (!(await dentroDaTaxa(`cancelar:${usuario.id}`, 5, 3600))) {
+    return { erro: "Muitas tentativas numa hora. Espera um pouco e tenta de novo." };
+  }
+  try {
+    const r = await cancelarPeloBotao(usuario.id);
+    if (r === "nada") return { erro: "Não achei assinatura pra cancelar." };
+    if (r === "ja_cancelado") {
+      revalidatePath("/painel/conta");
+      return { ok: "Essa cobrança já estava cancelada no gateway, então já atualizamos aqui. Recarrega a página pra ver a situação." };
+    }
+  } catch (e) {
+    console.error("[cancelarAssinatura]", e instanceof Error ? e.message : e);
+    return { erro: "Não deu pra cancelar agora. Tenta de novo em instantes." };
+  }
+  revalidatePath("/painel/conta");
+  return { ok: "Pedido de cancelamento enviado. Quando o gateway confirmar, a cobrança para (pode levar alguns minutos). Recarrega a página pra ver a situação." };
 }

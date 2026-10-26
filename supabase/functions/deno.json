@@ -1,0 +1,12 @@
+{
+  "imports": {
+    "@electric-sql/pglite": "npm:@electric-sql/pglite@0.5.8",
+    "@std/assert": "jsr:@std/assert@1",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2.117.3",
+    "server-only": "./_testes/vazio.ts",
+    "@/": "../../"
+  },
+  "unstable": [
+    "sloppy-imports"
+  ]
+}

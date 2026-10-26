@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { basePainel } from "@/lib/painel";
 import { PRODUTO } from "@/lib/config";
+import { temCartao, temPix, usaSupabase } from "@/lib/env";
 import { desconectarInstagram } from "@/lib/acoes";
-import { emReais, regras } from "@/lib/regras";
+import { regras } from "@/lib/regras";
 import { dataCurta, numero } from "@/lib/formato";
 import { Aviso, Avatar, Cartao, Selo, classeBotao } from "@/components/ui";
 import { CabecalhoPagina, ConectarInstagram } from "@/components/painel/blocos";
 import { ExcluirConta } from "@/components/painel/excluir-conta";
+import { Assinatura } from "@/components/painel/assinatura";
 import { IconeCheck, IconeInstagram } from "@/components/icones";
 
 export const metadata: Metadata = { title: "Conta" };
@@ -30,7 +32,7 @@ const PERMISSOES = [
 export default async function Conta({
   searchParams,
 }: {
-  searchParams: Promise<{ erro?: string; aviso?: string; desconectado?: string }>;
+  searchParams: Promise<{ erro?: string; aviso?: string; desconectado?: string; assinatura?: string }>;
 }) {
   const q = await searchParams;
   const { usuario, conta, situacao, demonstracao } = await basePainel();
@@ -102,42 +104,14 @@ export default async function Conta({
         {/* ------------------------------------------------ assinatura */}
         <section>
           <h2 className="mb-3 text-lg font-bold">Assinatura</h2>
-          <Cartao className="p-5 sm:p-6">
-            {situacao ? (
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-lg font-bold">
-                      {situacao.status === "trial"
-                        ? "Teste grátis"
-                        : situacao.status === "ativa"
-                          ? "Assinatura ativa"
-                          : situacao.status === "cancelada"
-                            ? "Assinatura cancelada"
-                            : "Teste ou assinatura vencida"}
-                    </p>
-                    {situacao.liberada ? <Selo cor="verde">Robô liberado</Selo> : <Selo cor="amarelo">Robô pausado</Selo>}
-                  </div>
-                  <p className="mt-1 text-sm text-suave">
-                    {situacao.status === "trial" && situacao.liberada
-                      ? `Vai até ${dataCurta(situacao.trialAte)} (${situacao.diasRestantes === 1 ? "falta 1 dia" : `faltam ${situacao.diasRestantes} dias`}). Sem cartão: no fim, a automação pausa até tu assinar.`
-                      : situacao.periodoAte && situacao.liberada
-                        ? `Paga até ${dataCurta(situacao.periodoAte)}.`
-                        : "As automações não mandam DM até tu assinar."}
-                  </p>
-                </div>
-                <div className="text-left sm:text-right">
-                  <p className="text-2xl font-bold">{emReais(r.precoMensalCentavos)}</p>
-                  <p className="text-xs text-suave">por mês · cartão ou Pix Automático</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-suave">Não achei a tua assinatura. Fala com o suporte.</p>
-            )}
-            <p className="mt-5 rounded-xl bg-superficie-2 px-4 py-3 text-sm text-suave">
-              O pagamento (cartão pelo Mercado Pago ou Pix Automático pelo Asaas) chega na próxima etapa do painel.
-            </p>
-          </Cartao>
+          <Assinatura
+            situacao={situacao}
+            precoCentavos={r.precoMensalCentavos}
+            carenciaDias={r.carenciaDias}
+            gateway={usaSupabase}
+            formas={{ cartao: !usaSupabase || temCartao, pix: !usaSupabase || temPix }}
+            iniciada={q.assinatura === "iniciada"}
+          />
         </section>
 
         {/* ------------------------------------------------ dados */}

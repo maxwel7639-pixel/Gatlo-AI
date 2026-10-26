@@ -3,7 +3,7 @@ import { usuarioAtual } from "@/lib/auth/sessao";
 import { COOKIE_ESTADO_OAUTH } from "@/lib/auth/nomes";
 import { instagramDemonstracao } from "@/lib/env";
 import { repo } from "@/lib/dados";
-import { ErroMeta, lerPerfil, tokenLongo, trocarCodigo } from "@/lib/instagram/meta";
+import { ErroMeta, inscreverComentarios, lerPerfil, tokenLongo, trocarCodigo } from "@/lib/instagram/meta";
 import { cifrar, iguais } from "@/lib/cripto";
 
 /**
@@ -12,7 +12,8 @@ import { cifrar, iguais } from "@/lib/cripto";
  *
  * 1. confere o state (cookie de /conectar) e que é a MESMA pessoa logada;
  * 2. troca o code pelo token curto e o curto pelo longo (~60 dias);
- * 3. lê o perfil, cifra o token e guarda (só o servidor lê).
+ * 3. lê o perfil, cifra o token e guarda (só o servidor lê);
+ * 4. inscreve a conta no webhook de comentários (falha aqui não derruba a conexão).
  */
 export async function GET(request: NextRequest) {
   const { origin, searchParams } = request.nextUrl;
@@ -51,8 +52,14 @@ export async function GET(request: NextRequest) {
     });
     if (!r.ok) return voltar("/painel/conta?erro=ja_conectada");
 
-    // FASE B: aqui entra a inscrição da conta no webhook de comentários
-    // (POST /me/subscribed_apps?subscribed_fields=comments), ver docs/PLANO.md.
+    // Inscreve a conta no webhook de comentários. Se falhar, a conexão fica de pé
+    // (a conta já está salva): só registra, e a consulta de reserva da fase B cobre.
+    // O modo demonstração nem chega aqui (volta no começo, sem chamar a Meta).
+    try {
+      await inscreverComentarios(longo.token);
+    } catch (e) {
+      console.error("[instagram/callback] inscrição no webhook falhou", e instanceof ErroMeta ? `${e.codigo} ${e.message}` : e);
+    }
 
     // Sem as permissões de comentário e mensagem o robô não funciona.
     const faltam = ["instagram_business_manage_comments", "instagram_business_manage_messages"].filter(

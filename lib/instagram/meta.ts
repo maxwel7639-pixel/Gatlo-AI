@@ -151,6 +151,19 @@ function paraToken(j: RespostaMeta) {
   return { token, expiraEm: new Date(Date.now() + segundos * 1000).toISOString() };
 }
 
+/**
+ * Inscreve a conta nos avisos de comentário do app (o webhook gatilho-webhook).
+ * POST /me/subscribed_apps?subscribed_fields=comments -> { success: true }.
+ * Só vale com o token da própria conta; a Meta só entrega os avisos com o app em
+ * Live e acesso avançado (até lá, a consulta de reserva da fase B cobre).
+ */
+export async function inscreverComentarios(token: string): Promise<void> {
+  const u = new URL(`${GRAPH}/me/subscribed_apps`);
+  u.searchParams.set("subscribed_fields", "comments");
+  const j = await chamar(u.toString(), { ...comToken(token), method: "POST" });
+  if (j.success !== true) throw new ErroMeta("A Meta não confirmou a inscrição no webhook.");
+}
+
 export async function lerPerfil(token: string): Promise<PerfilInstagram> {
   const u = new URL(`${GRAPH}/me`);
   u.searchParams.set(

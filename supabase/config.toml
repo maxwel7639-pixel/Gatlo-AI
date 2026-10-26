@@ -1,0 +1,15 @@
+# Só o que o deploy das Edge Functions precisa ler daqui. Não é um `supabase init`
+# completo: o projeto local (supabase start) não é usado, o banco vive no projeto
+# do Supabase de produção e as migrations são aplicadas à mão.
+
+# Função pública, chamada pela Meta (que não manda JWT do Supabase). Quem protege é
+# o próprio segredo da Meta, conferido no código antes de qualquer efeito:
+# GET -> INSTAGRAM_WEBHOOK_VERIFY_TOKEN; POST -> X-Hub-Signature-256 (INSTAGRAM_APP_SECRET).
+[functions.gatilho-webhook]
+verify_jwt = false
+
+# Função pública, chamada pelo agendador do banco (pg_cron + pg_net), que não manda JWT do
+# Supabase. Quem protege é o próprio segredo, conferido no código antes de qualquer efeito:
+# cabeçalho x-cron-chave igual a GATILHO_CRON_CHAVE. Sem o secret configurado, responde 503.
+[functions.gatilho-envia]
+verify_jwt = false
