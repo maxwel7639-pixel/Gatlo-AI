@@ -1681,18 +1681,39 @@
   .adPalco {
     position: sticky;
     top: 64px;
-    grid-template-columns: repeat(2, minmax(0, 420px));
+    grid-template-columns: repeat(2, minmax(0, min(43vw, 760px)));
     justify-content: center;
     align-items: center;
-    gap: 32px;
+    gap: 24px;
     max-width: none;
     height: calc(100svh - 64px);
   }
   .adCartao {
-    padding: 36px 32px;
+    min-height: min(640px, 74svh);
+    padding: clamp(32px, 3vw, 58px);
+    display: flex;
+    flex-direction: column;
   }
   .adTitulo {
-    font-size: 2.5rem;
+    font-size: clamp(42px, 3.6vw, 66px);
+    max-width: 600px;
+    margin-top: 18px;
+    letter-spacing: -0.05em;
+  }
+  .adLista {
+    margin-top: 42px;
+    gap: 18px;
+  }
+  .adLista li {
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .adBotao {
+    align-self: flex-start;
+    flex-shrink: 0;
+  }
+  .adSem .adTitulo {
+    max-width: 430px;
   }
   /* o "sem" encolhe e anda pra direita; o "com" anda pra esquerda e fica por cima */
   .adSem {

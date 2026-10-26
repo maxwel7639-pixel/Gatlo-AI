@@ -1,15 +1,16 @@
 import type { Viewport } from "next";
 import { PRODUTO } from "@/lib/config";
 import { REGRAS_DEMONSTRACAO, emReais, regras, type Regras } from "@/lib/regras";
-import Link from "next/link";
+import { Rodape } from "@/components/publico";
 import { BotaoLink } from "@/components/ui";
-import { IconeCheck, IconeLink, IconeSeta, IconeX } from "@/components/icones";
+import { IconeCheck, IconeLink, IconeX } from "@/components/icones";
 import { FaixaFuncoes } from "@/components/landing/faixa-funcoes";
 import { PalavrasFundo } from "@/components/landing/palavras-fundo";
 import { LuzDoCursor } from "@/components/landing/luz-do-cursor";
 import { CabecalhoVidro } from "@/components/landing/cabecalho-vidro";
-import { HeroConversa, HistoriaProduto, Exemplos } from "@/components/marketing/conversa-demo";
-import { CasosDeUso, ComoComecar, Perguntas, RodapeSite } from "@/components/marketing/secoes";
+import { HistoriaProduto, Exemplos } from "@/components/marketing/conversa-demo";
+import { HeroFotoPrincipal } from "@/components/marketing/hero-foto-principal";
+import { Perguntas } from "@/components/marketing/secoes";
 import { FaixaProva } from "@/components/landing/faixa-prova";
 import { AntesDepois } from "@/components/landing/antes-depois";
 import { Revela } from "@/components/landing/revela";
@@ -59,27 +60,25 @@ export default async function Inicio() {
       <CabecalhoVidro testeDias={r.testeDias} />
       <main className="flex-1">
         {/* ---------------------------------------------------- topo: título + a conversa em loop */}
-        <section className={m.hero} data-luz>
+        <section className={`${s.secao} ${m.heroPrincipal}`} data-luz>
           <PalavrasFundo />
-          <div className={`${m.container} ${m.heroGrade}`}>
-            <div className={m.heroTexto}>
-              <p className={m.sobreTitulo}>{PRODUTO.nome} / Automação para Instagram</p>
-              <h1>
-                Comentou.<br />Recebeu.<br />A conversa começou.
+          <div className={`${s.heroGrid} ${m.heroPrincipalGrid}`}>
+            <div>
+              <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+                Quem comentar a palavra recebe o teu link na DM.
               </h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-suave">
                 Tu escolhe o post, a palavra e a mensagem. O {PRODUTO.nome} manda o link no direct de quem
                 comentou, sozinho, numa fila que respeita o limite do Instagram.
               </p>
-              <div className={m.heroAcoes}>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <BotaoLink href="/cadastro" tamanho="lg">
                   Teste {r.testeDias} dias grátis
                 </BotaoLink>
-                <Link href="/produto/instagram" className={m.linkTexto}>Conhecer a Gatlo<IconeSeta className="size-5" /></Link>
+                <p className="text-sm text-suave">Sem cartão no teste. Depois, {preco} por mês.</p>
               </div>
-              <small className={m.heroNota}>Sem cartão no teste. Depois, {preco} por mês.</small>
             </div>
-            <HeroConversa />
+            <HeroFotoPrincipal />
           </div>
         </section>
 
@@ -102,8 +101,6 @@ export default async function Inicio() {
         <FaixaFuncoes porHora={porHora} testeDias={r.testeDias} />
 
         <Exemplos />
-        <CasosDeUso />
-        <ComoComecar />
 
         {/* ---------------------------------------------------- faz / não faz */}
         <section id="limites" className={`${s.comMarca} mx-auto max-w-6xl scroll-mt-28 px-4 pt-28 pb-20 sm:px-6`}>
@@ -185,7 +182,11 @@ export default async function Inicio() {
         </section>
         <Perguntas />
       </main>
-      <RodapeSite />
+      <Rodape />
+      <div className={s.gigante} data-luz aria-hidden="true">
+        <p className={s.giganteApagado}>{PRODUTO.nome}</p>
+        <p className={s.giganteAceso}>{PRODUTO.nome}</p>
+      </div>
     </div>
   );
 }

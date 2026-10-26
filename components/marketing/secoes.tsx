@@ -42,7 +42,7 @@ export function Perguntas({ caso }: { caso?: CasoId }) {
     { p: "E se muita gente comentar ao mesmo tempo?", r: "Os envios entram numa fila. A Gatlo envia em rodadas e pausa se o Instagram pedir pra esperar. Isso organiza o envio; não é uma garantia contra limites ou bloqueios impostos pela plataforma." },
     { p: "Posso usar um link que já tenho?", r: "Sim. Pode ser o teu site, catálogo, material ou agenda externa. O clique passa pelo link da automação para ser contado e segue para o destino que tu escolheu." },
   ];
-  return <section className={s.faq}><div className={`${s.container} ${s.faqGrade}`}><div><p className={s.sobreTitulo}>Sem dúvida no próximo passo</p><h2>Antes do<br />primeiro convite.</h2><p className={s.faqIntro}>O que tu precisa saber pra usar a Gatlo com clareza.</p></div><div className={s.faqLista}>{perguntas.map(q => <details key={q.p}><summary>{q.p}</summary><p>{q.r}</p></details>)}</div></div></section>;
+  return <section className={s.faq}><div className={`${s.container} ${s.faqGrade}`}><div><p className={s.sobreTitulo}>Sem dúvida no próximo passo</p><h2>Perguntas<br />frequentes.</h2><p className={s.faqIntro}>O que tu precisa saber pra usar a Gatlo com clareza.</p></div><div className={s.faqLista}>{perguntas.map(q => <details key={q.p}><summary>{q.p}</summary><p>{q.r}</p></details>)}</div></div></section>;
 }
 
 export function Convite() {

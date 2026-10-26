@@ -1,4 +1,4 @@
-.container { width: min(1320px, calc(100% - 80px)); margin-inline: auto; }
+.container { width: min(1600px, calc(100% - 80px)); margin-inline: auto; }
 .pagina { overflow: clip; }
 .pagina :is(a,button,summary) { -webkit-tap-highlight-color: transparent; }
 .pagina button, .pagina summary { cursor: pointer; }
@@ -302,4 +302,276 @@
   .faixaTrilho { width: 100%; }
   .faixaTrilho > span { flex-wrap: wrap; justify-content: center; gap: 20px; padding-inline: 20px; }
   .faixaTrilho > span[aria-hidden] { display: none; }
+}
+
+/* A principal conserva a abertura original; a foto é o cenário dos balões. */
+.heroPrincipal { padding-top: 64px; }
+.heroPrincipalGrid { max-width: 1480px; gap: 80px; }
+.fotoPrincipal { position: relative; min-width: 0; height: 620px; margin: 12px 0 24px; isolation: isolate; }
+.fotoPrincipalMoldura { position: absolute; inset: 0; border-radius: 28px; overflow: hidden; background: #d8ddcf; box-shadow: 0 30px 65px -45px #0b102080; }
+.fotoPrincipalMoldura img { object-fit: cover; object-position: 75% center; }
+.fotoPrincipal [data-bolhas] { position: absolute; inset: 0; min-height: 0; width: 100%; max-width: none; height: 100%; margin: 0; display: block; }
+.fotoPrincipal [data-bolha] { position: absolute; height: auto; }
+.fotoPrincipal [data-bolha="comentario"] { top: 90px; left: -30px; right: auto; width: 255px; }
+.fotoPrincipal [data-bolha="dm"] { top: 290px; left: auto; right: -20px; width: 320px; }
+.fotoPrincipal [data-bolha="resposta"] { top: auto; bottom: 48px; left: 20px; right: auto; width: 245px; }
+.fotoPrincipalLegenda { position: absolute; bottom: -27px; right: 0; font-size: 11px; color: #4a5466; }
+
+/* Instagram é uma página de produto: título amplo, depois foto e recursos. */
+.igHero { padding: 140px 0 60px; background: #1e50f0; color: #fff; background-image: linear-gradient(#ffffff0b 1px,transparent 1px),linear-gradient(90deg,#ffffff0b 1px,transparent 1px); background-size: 12.5vw 12.5vw; }
+.igHeroDentro { width: calc(100% - 80px); max-width: 1840px; margin: auto; }
+.igHero h1 { font-size: clamp(72px,6.7vw,128px); font-weight: 800; letter-spacing: -.06em; line-height: .95; max-width: 1200px; }
+.igHeroDescricao { margin-top: 30px; font-size: clamp(19px,1.45vw,25px); line-height: 1.5; max-width: 770px; }
+.igHeroBase { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; margin-top: 48px; }
+.igHeroBase .heroAcoes { margin: 0; }
+.igHeroSelos { display: flex; align-items: center; gap: 35px; }
+.igHeroSelos li { display: flex; align-items: center; gap: 10px; font-size: 12px; line-height: 1.5; }
+.igHeroSelos svg { width: 29px; height: 29px; }
+.igHero :focus-visible { outline-color: #d6f5df; }
+.fotoInstagram { position: relative; height: 100svh; min-height: 600px; max-height: 1100px; background: #1e50f0; --foto-p: 0; overflow: clip; }
+.fotoMoldura { position: absolute; inset: 0; overflow: hidden; transform: scale(calc(1 - var(--foto-p) * .16)); border-radius: calc(var(--foto-p) * 45px); transform-origin: center; will-change: transform; }
+.fotoMoldura > img { object-fit: cover; object-position: 65% center; transform: scale(1.04) translateY(calc(var(--foto-p) * -25px)); }
+.fotoSombra { position: absolute; inset: 0; background: linear-gradient(90deg,#07090c85,transparent 65%); }
+.fotoChecklist { position: absolute; top: 24%; left: 8%; color: #fff; }
+.fotoChecklist > p { font-size: 15px; margin-bottom: 25px; }
+.fotoChecklist ul { display: grid; gap: 22px; }
+.fotoChecklist li { display: flex; align-items: center; gap: 15px; font-size: clamp(24px,2.6vw,46px); font-weight: 700; letter-spacing: -.04em; opacity: .58; transition: opacity 300ms; }
+.fotoChecklist li[data-ativo] { opacity: 1; }
+.fotoChecklist svg { width: 40px; height: 40px; border: 1px solid #ffffff80; padding: 5px; border-radius: 50%; }
+.fotoBalao { position: absolute; right: 7%; bottom: 9%; background: #f8f9fbef; backdrop-filter: blur(15px); color: #0b1020; border-radius: 18px; padding: 22px 28px; max-width: 360px; box-shadow: 0 20px 70px #0003; }
+.fotoBalao > span { font-size: 12px; display: flex; align-items: center; gap: 7px; color: #4a5466; }
+.fotoBalao p { margin-top: 10px; font-size: 20px; line-height: 1.3; font-weight: 650; letter-spacing: -.025em; }
+.fotoBalao b { margin-top: 10px; font-weight: 400; font-size: 13px; display: block; }
+.igIntroducao { padding: 150px 25px; text-align: center; background: #f8f9fb; }
+.igIntroducao > svg { margin: auto auto 35px; color: #1e50f0; }
+.igIntroducao h2 { max-width: 1100px; margin: auto; font-size: clamp(48px,5.1vw,96px); font-weight: 780; letter-spacing: -.06em; line-height: 1.02; }
+.igIntroducao p { max-width: 620px; margin: 30px auto 0; font-size: 21px; line-height: 1.6; color: #4a5466; }
+.igRecursos { height: 450svh; position: relative; background: #1e50f0; background-image: linear-gradient(#ffffff0b 1px,transparent 1px),linear-gradient(90deg,#ffffff0b 1px,transparent 1px); background-size: 12.5vw 12.5vw; color: #fff; scroll-margin-top: 72px; }
+.igRecursosPalco { position: sticky; top: 72px; height: calc(100svh - 72px); display: grid; grid-template-columns: 1fr 1fr; gap: 10%; align-items: center; width: min(1560px,calc(100% - 140px)); margin: auto; }
+.igRecursoTexto { align-self: stretch; display: flex; flex-direction: column; justify-content: center; position: relative; text-align: center; }
+.igProgresso { position: absolute; top: 35px; left: 0; right: 0; display: flex; justify-content: center; gap: 8px; }
+.igProgresso button { width: 35px; min-height: 44px; position: relative; }
+.igProgresso button::after { position: absolute; content: ""; height: 4px; inset: 20px 0; background: #ffffff45; border-radius: 10px; }
+.igProgresso [aria-current] { width: 54px; }
+.igProgresso [aria-current]::after { background: #fff; }
+.igRecursoCopy { animation: aparece 300ms ease both; }
+.igRecursoCopy h2 { font-size: clamp(42px,3.7vw,70px); font-weight: 780; line-height: 1.02; letter-spacing: -.055em; text-wrap: balance; }
+.igRecursoCopy p { margin: 25px auto 0; max-width: 560px; font-size: clamp(19px,1.4vw,25px); line-height: 1.5; }
+.igAjudaScroll { position: absolute; bottom: 30px; left: 0; right: 0; font-size: 12px; color: #e5ebff; }
+.igRecursoVisual { width: min(100%,440px); justify-self: center; align-self: center; }
+.igRecursoVisual > p { font-size: 11px; margin-top: 12px; text-align: center; color: #e5ebff; }
+.igMockup { height: min(70svh,730px); min-height: 470px; background: #07090c; border-radius: 32px; overflow: hidden; color: #fff; display: flex; flex-direction: column; box-shadow: 0 25px 80px -45px #0006; }
+.igMockTopo { display: flex; gap: 11px; align-items: center; padding: 20px 24px; border-bottom: 1px solid #ffffff18; }
+.igMockTopo b { font-size: 17px; font-weight: 650; }
+.igAvatar, .igAvatarAna { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; background: #d6f5df; color: #183d24; font-weight: 700; flex-shrink: 0; }
+.igAvatarAna { background: #e4ddff; color: #30254c; width: 32px; height: 32px; font-size: 12px; }
+.igMockConteudo { flex: 1; min-height: 0; overflow: hidden; position: relative; animation: aparece 350ms ease both; }
+.igPostFoto { position: relative; height: 58%; min-height: 210px; }
+.igPostFoto img { object-fit: cover; object-position: 75% center; }
+.igPostFoto p { position: absolute; bottom: 20px; left: 18px; right: 18px; border-radius: 14px; background: #1e50f0; padding: 14px; text-align: center; font-size: 22px; font-weight: 650; line-height: 1.15; }
+.igPostRodape { padding: 15px 22px 0; }
+.igPostRodape > div { display: flex; gap: 15px; }
+.igPostRodape svg { width: 25px; height: 25px; }
+.igPostRodape p { font-size: 13px; line-height: 1.45; margin-top: 12px; }
+.igComentarioNovo { display: flex; align-items: center; gap: 10px; margin: 14px; border-radius: 13px; background: #252d3b; padding: 12px; font-size: 12px; animation: aparece 400ms ease both; }
+.igEtiqueta { padding: 18px 22px; background: #d6f5df; color: #183d24; display: flex; justify-content: space-between; gap: 20px; font-weight: 650; font-size: 16px; margin-top: 0; border-radius: 0 0 12px 12px; }
+.igHoje { text-align: center; font-size: 11px; color: #bdc8d9; margin-top: 20px; }
+.igContexto { margin: 20px; display: flex; align-items: center; gap: 12px; padding: 11px; background: #202838; border-radius: 12px; font-size: 11px; line-height: 1.5; }
+.igContexto img { border-radius: 5px; width: 42px; height: 52px; }
+.igDirect { padding: 20px 20px 0; border-radius: 22px 22px 6px 22px; background: #3654db; margin: 26px 18px 0 60px; }
+.igDirect p { font-size: 17px; line-height: 1.5; }
+.igDirect span { display: flex; gap: 12px; align-items: center; justify-content: center; border-top: 1px solid #ffffff40; margin-top: 20px; padding: 14px 0; font-size: 15px; font-weight: 600; }
+.igEnviado { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: #bdc8d9; margin: 8px 20px 0; }
+.igResposta { display: flex; align-items: flex-end; gap: 10px; margin: 28px 60px 0 18px; }
+.igResposta p { font-size: 15px; line-height: 1.5; padding: 17px; border-radius: 20px 20px 20px 4px; background: #252d3b; }
+.igCampo { position: absolute; inset: auto 18px 20px; display: flex; justify-content: space-between; padding: 13px 18px; font-size: 13px; color: #bdc8d9; border: 1px solid #ffffff40; border-radius: 40px; }
+.igPainel { padding: 28px; }
+.igPainel > p { font-size: 16px; color: #a9c2ff; }
+.igPainel h3 { font-size: 32px; font-weight: 650; letter-spacing: -.04em; line-height: 1.1; margin-top: 13px; }
+.igMetricas { margin-top: 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.igMetricas > div { padding: 17px; border-radius: 12px; background: #202838; }
+.igMetricas > div:last-child { background: #d6f5df; color: #183d24; }
+.igMetricas small { display: block; font-size: 12px; }
+.igMetricas b { display: block; font-size: 36px; margin-top: 5px; font-weight: 700; line-height: 1; }
+.igClique { display: flex; align-items: center; gap: 10px; background: #202838; border-radius: 12px; padding: 16px; font-size: 12px; margin-top: 20px; }
+.igClique small { display: block; font-size: 9px; color: #bdc8d9; margin-top: 4px; }
+.igNota { display: block; color: #bdc8d9; font-size: 11px; line-height: 1.5; margin-top: 18px; }
+.igRecursos :focus-visible { outline-color: #d6f5df; }
+.igRecursos[data-reduz] { height: auto; }
+.igRecursos[data-reduz] .igRecursosPalco { position: relative; height: auto; padding-block: 90px; }
+.igRecursos[data-reduz] .igProgresso { top: 0; }
+
+/* Painel de exemplos próprio do produto, com seleção lateral e mídia maior. */
+.exemplosInstagram .cabSecao { justify-content: center; text-align: center; display: block; }
+.exemplosInstagram .cabSecao > p { max-width: none; margin: 25px auto 0; }
+.exemploVitrine { grid-template-columns: 350px minmax(340px,1fr) 280px; gap: 40px; padding: 28px; border-radius: 0; background-image: linear-gradient(#0b10200a 1px,transparent 1px),linear-gradient(90deg,#0b10200a 1px,transparent 1px); background-size: 160px 160px; }
+.exemploVitrine .exemploEsquerda { background: #f8f9fb; padding: 35px 24px 28px; border-radius: 24px; }
+.vitrineTitulo { font-size: 40px; line-height: 1; letter-spacing: -.045em; font-weight: 730; margin: 8px 0 35px; }
+.exemploVitrine .abas { display: flex; flex-direction: column; align-self: stretch; gap: 10px; border: 0; padding: 0; border-radius: 0; }
+.exemploVitrine .abas button { text-align: left; padding: 20px; border-radius: 14px; font-size: 18px; font-weight: 500; }
+.exemploVitrine .abas button > span { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #4a5466; margin-top: 9px; }
+.exemploVitrine .abas [aria-selected=true] { color: #0b1020; background: #e7e9ee; }
+.exemploVitrine .exemploEsquerda > .botaoEscuro { margin-top: auto; }
+.exemploVitrine .exemploVisual { padding-block: 20px; }
+.exemploVitrine .telefone { width: 360px; height: 700px; padding: 0; border: 0; border-radius: 32px; box-shadow: 0 30px 65px -40px #0b102050; }
+.exemploVitrine .telefone::after, .exemploVitrine .statusBar, .exemploVitrine .homeBar { display: none; }
+.exemploVitrine .telefoneTela { border-radius: 32px; }
+.exemploVitrine .appBar { padding: 24px 20px; gap: 10px; }
+.exemploVitrine .appBar b { font-size: 15px; }
+.exemploVitrine .appBar small { font-size: 10px; }
+.exemploVitrine .capaPost { height: 355px; }
+.exemploVitrine .legendaPost, .exemploVitrine .comentario { font-size: 13px; }
+.exemploVitrine .mensagem { font-size: 16px; margin-top: 30px; padding: 20px 18px 8px; }
+.exemploVitrine .mensagemResposta p { font-size: 15px; padding: 15px; }
+.exemploVitrine .exemploDescricao { padding: 0; margin-bottom: 24px; }
+.exemploVitrine .exemploDescricao h3 { font-size: 27px; }
+.exemploVitrine .exemploDescricao p { font-size: 16px; margin-top: 15px; }
+.exemploVitrine .exemploControle { padding-left: 0; }
+.exemploVitrine .exemploControle > p:not(.sobreTitulo) { display: none; }
+.exemploVitrine .exemploNota { font-size: 11px; }
+.vitrinePausa { display: block; font-size: 12px; text-decoration: underline; text-underline-offset: 4px; min-height: 44px; margin-top: 8px; }
+
+@media (max-width: 1300px) and (min-width: 768px) {
+  .exemploVitrine { grid-template-columns: 270px 1fr; gap: 25px; }
+  .exemploVitrine .exemploControle { display: block; grid-column: 1 / -1; border-top: 1px solid #0b102030; padding-top: 25px; }
+  .exemploVitrine .exemploDescricao { max-width: 800px; }
+  .exemploVitrine .exemploControle .botaoEscuro { width: auto; }
+  .exemploVitrine .botoesEtapa { margin-block: 20px; }
+  .igHeroSelos { gap: 18px; }
+  .igRecursosPalco { width: calc(100% - 80px); gap: 50px; }
+  .igRecursoCopy h2 { font-size: 43px; }
+  .igRecursoVisual { max-width: 370px; }
+}
+@media (max-width: 1023px) {
+  .heroPrincipalGrid { gap: 40px; }
+  .fotoPrincipal { height: 650px; width: min(680px,100%); margin: 0 auto 35px; }
+  .fotoPrincipal [data-bolha="comentario"] { left: 0; }
+  .fotoPrincipal [data-bolha="dm"] { right: 0; }
+}
+@media (max-width: 767px) {
+  .fotoPrincipal { height: 500px; margin-top: 10px; }
+  .fotoPrincipalMoldura { border-radius: 22px; }
+  .fotoPrincipal [data-bolha="comentario"] { top: 60px; width: 220px; left: -5px; }
+  .fotoPrincipal [data-bolha="dm"] { top: 220px; width: 270px; right: -5px; }
+  .fotoPrincipal [data-bolha="resposta"] { bottom: 25px; width: 225px; left: 0; }
+  .igHero { padding: 120px 0 40px; }
+  .igHeroDentro { width: calc(100% - 40px); }
+  .igHero h1 { font-size: clamp(49px,12vw,77px); }
+  .igHeroDescricao { font-size: 18px; margin-top: 25px; }
+  .igHeroBase { display: block; margin-top: 30px; }
+  .igHeroBase .heroAcoes { gap: 14px 24px; }
+  .igHeroSelos { margin-top: 35px; justify-content: space-between; gap: 12px; }
+  .igHeroSelos li { display: block; font-size: 9px; }
+  .igHeroSelos svg { width: 23px; height: 23px; margin-bottom: 8px; }
+  .fotoInstagram { height: 660px; min-height: 0; }
+  .fotoMoldura > img { object-position: 72% center; }
+  .fotoSombra { background: linear-gradient(#07090c55,transparent 60%,#07090c60); }
+  .fotoChecklist { top: 7%; left: 7%; }
+  .fotoChecklist > p { font-size: 12px; margin-bottom: 15px; }
+  .fotoChecklist li { font-size: 24px; gap: 10px; }
+  .fotoChecklist ul { gap: 13px; }
+  .fotoChecklist svg { width: 26px; height: 26px; padding: 3px; }
+  .fotoBalao { right: 6%; left: 6%; bottom: 7%; padding: 18px; }
+  .fotoBalao p { font-size: 18px; }
+  .igIntroducao { padding: 80px 20px; }
+  .igIntroducao h2 { font-size: 43px; }
+  .igIntroducao p { font-size: 17px; }
+  .igRecursos { height: 440svh; }
+  .igRecursosPalco { width: calc(100% - 36px); grid-template-columns: 1fr; height: calc(100svh - 72px); gap: 12px; align-content: center; padding-block: 16px; }
+  .igRecursoTexto { padding-top: 44px; display: block; }
+  .igProgresso { top: 0; }
+  .igRecursoCopy h2 { font-size: 30px; max-width: 360px; margin-inline: auto; }
+  .igRecursoCopy p { font-size: 13px; line-height: 1.45; margin-top: 12px; max-width: 340px; }
+  .igAjudaScroll { display: none; }
+  .igRecursoVisual { max-width: 270px; }
+  .igMockup { height: 405px; min-height: 0; border-radius: 22px; }
+  .igMockTopo { padding: 10px 14px; gap: 8px; }
+  .igMockTopo b { font-size: 12px; }
+  .igAvatar { width: 28px; height: 28px; font-size: 11px; }
+  .igPostFoto { min-height: 0; height: 56%; }
+  .igPostFoto p { font-size: 16px; padding: 8px; inset: auto 12px 12px; }
+  .igPostRodape { padding: 9px 12px 0; }
+  .igPostRodape svg { width: 17px; height: 17px; }
+  .igPostRodape p { font-size: 9px; margin-top: 7px; }
+  .igComentarioNovo { font-size: 8px; padding: 7px; gap: 6px; margin: 9px; }
+  .igAvatarAna { width: 24px; height: 24px; font-size: 9px; }
+  .igEtiqueta { padding: 11px 13px; font-size: 11px; }
+  .igRecursoVisual > p { font-size: 9px; margin-top: 8px; }
+  .igHoje { font-size: 9px; margin-top: 11px; }
+  .igContexto { margin: 12px; padding: 7px; gap: 8px; font-size: 8px; }
+  .igContexto img { width: 26px; height: 33px; }
+  .igDirect { margin: 18px 12px 0 38px; padding: 12px 12px 0; border-radius: 15px 15px 4px 15px; }
+  .igDirect p { font-size: 11px; }
+  .igDirect span { font-size: 10px; padding: 9px 0; margin-top: 11px; }
+  .igEnviado { font-size: 8px; margin-top: 5px; }
+  .igResposta { gap: 6px; margin: 15px 34px 0 12px; }
+  .igResposta p { font-size: 10px; padding: 10px; border-radius: 13px 13px 13px 4px; }
+  .igCampo { inset: auto 12px 12px; font-size: 9px; padding: 8px 12px; }
+  .igPainel { padding: 17px; }
+  .igPainel > p { font-size: 11px; }
+  .igPainel h3 { font-size: 23px; margin-top: 8px; }
+  .igMetricas { margin-top: 17px; gap: 8px; }
+  .igMetricas > div { padding: 10px; }
+  .igMetricas small { font-size: 9px; }
+  .igMetricas b { font-size: 24px; }
+  .igClique { padding: 10px; margin-top: 12px; font-size: 9px; }
+  .igClique small { font-size: 7px; }
+  .igNota { margin-top: 12px; font-size: 8px; }
+  .exemploVitrine { grid-template-columns: 1fr; gap: 25px; padding: 18px; }
+  .exemploVitrine .exemploEsquerda { padding: 25px 20px; }
+  .vitrineTitulo { font-size: 33px; margin-bottom: 25px; }
+  .exemploVitrine .abas { flex-direction: column; }
+  .exemploVitrine .abas button { padding: 16px; font-size: 16px; }
+  .exemploVitrine .exemploEsquerda > .botaoEscuro { margin-top: 24px; }
+  .exemploVitrine .telefone { width: 290px; height: 590px; }
+  .exemploVitrine .appBar { padding: 17px 13px; }
+  .exemploVitrine .appBar b { font-size: 13px; }
+  .exemploVitrine .capaPost { height: 280px; }
+  .exemploVitrine .legendaPost, .exemploVitrine .comentario { font-size: 10px; }
+  .exemploVitrine .mensagem { font-size: 13px; padding: 15px 13px 6px; }
+  .exemploVitrine .mensagemResposta p { font-size: 12px; }
+  .exemploVitrine .exemploControle { display: block; padding-top: 0; border-top: 0; }
+  .exemploVitrine .exemploDescricao { padding: 0; }
+}
+@media (max-width: 767px) and (max-height: 740px) {
+  .igRecursoCopy h2 { font-size: 24px; }
+  .igRecursoCopy p { font-size: 12px; }
+  .igRecursoVisual { max-width: 230px; }
+  .igMockup { height: 340px; }
+  .igPostFoto { height: 47%; }
+  .igPostFoto p { font-size: 14px; }
+  .igHoje { margin-top: 7px; }
+  .igContexto { margin: 8px; }
+  .igDirect { margin-top: 10px; }
+  .igResposta { margin-top: 10px; }
+  .igResposta p { font-size: 9px; padding: 7px; }
+  .igCampo { display: none; }
+  .igPainel h3 { font-size: 20px; }
+  .igMetricas { margin-top: 12px; gap: 6px; }
+  .igMetricas > div { padding: 8px; }
+  .igClique { margin-top: 10px; }
+  .igNota { font-size: 7px; }
+}
+@media (min-width: 768px) and (max-height: 800px) {
+  .igMockup { height: 62svh; min-height: 400px; }
+  .igPostFoto { height: 50%; min-height: 180px; }
+  .igPostFoto p { font-size: 19px; padding: 10px; }
+  .igMockTopo { padding-block: 13px; }
+  .igDirect { margin-top: 16px; }
+  .igDirect p { font-size: 15px; }
+  .igResposta { margin-top: 17px; }
+  .igResposta p { font-size: 12px; }
+  .igCampo { padding-block: 10px; }
+  .igPainel { padding: 20px; }
+  .igPainel h3 { font-size: 26px; }
+  .igMetricas { margin-top: 18px; }
+  .igMetricas > div { padding: 11px; }
+  .igClique { margin-top: 13px; padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fotoMoldura { transform: none; border-radius: 0; }
+  .fotoMoldura > img { transform: none; }
+  .fotoChecklist li { opacity: 1; }
+  .igRecursos { height: auto; }
+  .igRecursosPalco { position: relative; height: auto; padding-block: 75px; }
 }

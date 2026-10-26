@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { CabecalhoVidro } from "@/components/landing/cabecalho-vidro";
-import { AntesDepois } from "@/components/landing/antes-depois";
-import { HeroConversa, HistoriaProduto, Exemplos } from "@/components/marketing/conversa-demo";
+import { Exemplos } from "@/components/marketing/conversa-demo";
+import { FotoInstagram, RecursosInstagram } from "@/components/marketing/instagram-vitrine";
 import { CasosDeUso, ComoComecar, Convite, FaixaEtapas, Perguntas, RodapeSite } from "@/components/marketing/secoes";
-import { IconeInstagram, IconeSeta } from "@/components/icones";
+import { IconeCheck, IconeComentario, IconeInstagram, IconeSeta } from "@/components/icones";
 import l from "@/components/landing/landing.module.css";
 import s from "@/components/marketing/marketing.module.css";
 
@@ -17,9 +17,10 @@ export const viewport: Viewport = { themeColor: "#1e50f0", colorScheme: "light" 
 
 export default function Instagram() {
   return <div className={`${l.pagina} ${s.pagina}`}><CabecalhoVidro claroNoTopo /><main>
-    <section className={`${s.hero} ${s.heroAzul}`}><div className={`${s.container} ${s.heroGrade}`}><div className={s.heroTexto}><p className={`${s.sobreTitulo} flex items-center gap-2`}><IconeInstagram className="size-5" /> Gatlo para Instagram</p><h1>Teu conteúdo abre a conversa.</h1><p>Quem comenta a palavra recebe teu link no direct. A Gatlo cuida da entrega e tu segue com o que mais importa: a conversa.</p><div className={s.heroAcoes}><Link href="/cadastro" className={s.botaoClaro}>Começar meu teste<IconeSeta className="size-5" /></Link><Link href="#como-funciona" className={s.linkTexto}>Ver como funciona</Link></div><small className={s.heroNota}>Para contas profissionais do Instagram.</small></div><HeroConversa /></div></section>
-    <FaixaEtapas /><HistoriaProduto />
-    <section id="antes-depois" aria-labelledby="titulo-antes-depois"><h2 id="titulo-antes-depois" className="sr-only">Teu direct, antes e depois</h2><AntesDepois /></section>
-    <Exemplos /><CasosDeUso /><ComoComecar /><Perguntas /><Convite />
+    <section className={s.igHero}><div className={s.igHeroDentro}><p className={s.sobreTitulo}>Gatlo para Instagram</p><h1>Teu Instagram<br />trabalha contigo.</h1><p className={s.igHeroDescricao}>Envia teu link, responde o comentário e acompanha os cliques. Com menos tarefa repetida, sobra espaço pra tu continuar a conversa.</p><div className={s.igHeroBase}><div className={s.heroAcoes}><Link href="/cadastro" className={s.botaoClaro}>Começar meu teste<IconeSeta className="size-5" /></Link><Link href="#como-funciona" className={s.linkTexto}>Ver como funciona</Link></div><ul className={s.igHeroSelos}><li><IconeInstagram /><span>Conta profissional<br /><b>do Instagram</b></span></li><li><IconeComentario /><span>A mensagem<br /><b>é do teu jeito</b></span></li><li><IconeCheck /><span>Envios<br /><b>organizados em fila</b></span></li></ul></div></div></section>
+    <FotoInstagram /><FaixaEtapas />
+    <section className={s.igIntroducao}><IconeInstagram className="size-14" /><h2>Menos tarefa no direct.<br />Mais tempo pra criar.</h2><p>Teu conteúdo já despertou o interesse. A Gatlo cuida de entregar o link pra quem pediu, e tu segue com a conversa.</p></section>
+    <RecursosInstagram />
+    <Exemplos variante="instagram" /><CasosDeUso /><ComoComecar /><Perguntas /><Convite />
   </main><RodapeSite /></div>;
 }

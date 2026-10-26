@@ -22,6 +22,10 @@ function acompanhaMovimento(avisa: () => void) {
 const movimentoReduzido = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const noServidor = () => false;
 
+export function useMovimentoReduzido() {
+  return useSyncExternalStore(acompanhaMovimento, movimentoReduzido, noServidor);
+}
+
 /** Ilustração em HTML. Não se conecta ao Instagram nem envia mensagens. */
 export function CelularDemo({ caso = "materiais-gratuitos", etapa = 1 }: { caso?: CasoId; etapa?: number }) {
   const c = CASOS[caso];
@@ -121,38 +125,57 @@ export function HistoriaProduto({ caso = "materiais-gratuitos" }: { caso?: CasoI
   );
 }
 
-export function Exemplos({ inicial = "materiais-gratuitos" }: { inicial?: CasoId }) {
+export function Exemplos({ inicial = "materiais-gratuitos", variante = "principal" }: { inicial?: CasoId; variante?: "principal" | "instagram" }) {
   const [caso, setCaso] = useState<CasoId>(inicial);
   const [etapa, setEtapa] = useState(0);
+  const [pausado, setPausado] = useState(false);
+  const raiz = useRef<HTMLElement>(null);
+  const reduz = useMovimentoReduzido();
+  const lateral = variante === "instagram";
   const id = useId();
+  useEffect(() => {
+    const el = raiz.current;
+    if (!el || !lateral || pausado || reduz) return;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    let visivel = false;
+    const controla = () => {
+      clearInterval(timer);
+      if (visivel && !document.hidden) timer = setInterval(() => setEtapa(e => (e + 1) % ETAPAS.length), 2600);
+    };
+    const obs = new IntersectionObserver(([e]) => { visivel = e.isIntersecting; controla(); }, { threshold: .25 });
+    obs.observe(el); document.addEventListener("visibilitychange", controla);
+    return () => { clearInterval(timer); obs.disconnect(); document.removeEventListener("visibilitychange", controla); };
+  }, [lateral, pausado, reduz, caso]);
   function muda(novo: CasoId) { setCaso(novo); setEtapa(0); }
   function navega(e: KeyboardEvent<HTMLButtonElement>, i: number) {
     let proximo = i;
-    if (e.key === "ArrowRight") proximo = (i + 1) % CASO_IDS.length;
-    else if (e.key === "ArrowLeft") proximo = (i + CASO_IDS.length - 1) % CASO_IDS.length;
+    if (e.key === "ArrowRight" || (lateral && e.key === "ArrowDown")) proximo = (i + 1) % CASO_IDS.length;
+    else if (e.key === "ArrowLeft" || (lateral && e.key === "ArrowUp")) proximo = (i + CASO_IDS.length - 1) % CASO_IDS.length;
     else if (e.key === "Home") proximo = 0;
     else if (e.key === "End") proximo = CASO_IDS.length - 1;
     else return;
     e.preventDefault(); muda(CASO_IDS[proximo]); document.getElementById(`${id}-${CASO_IDS[proximo]}`)?.focus();
   }
+  const descricao = <><span className={s.palavraExemplo}>{CASOS[caso].palavra}</span><h3>{CASOS[caso].destaque}</h3><p>{CASOS[caso].descricao}</p><Link href={`/solucoes/${caso}`} className={s.linkTexto}>Conhecer esse uso<IconeSeta className="size-5" /></Link></>;
   return (
-    <section id="exemplos" className={s.exemplos} aria-labelledby="exemplos-titulo">
+    <section ref={raiz} id="exemplos" className={`${s.exemplos} ${lateral ? s.exemplosInstagram : ""}`} aria-labelledby="exemplos-titulo">
       <div className={s.container}>
-        <div className={s.cabSecao}><div><p className={s.sobreTitulo}>Vê a ideia acontecer</p><h2 id="exemplos-titulo">Teu link.<br />Muitos começos.</h2></div><p>Escolhe um exemplo e avança a conversa.<br />É uma demonstração: nada é enviado.</p></div>
-        <div className={s.exemploQuadro} style={{ "--caso": CASOS[caso].cor } as CSSProperties}>
+        <div className={s.cabSecao}><div><p className={s.sobreTitulo}>Vê a ideia acontecer</p><h2 id="exemplos-titulo">{lateral ? <>Teu próximo post.<br />Um mundo de conversas.</> : <>Teu link.<br />Muitos começos.</>}</h2></div><p>Escolhe um exemplo e acompanha a conversa.<br />É uma demonstração: nada é enviado.</p></div>
+        <div className={`${s.exemploQuadro} ${lateral ? s.exemploVitrine : ""}`} style={{ "--caso": CASOS[caso].cor } as CSSProperties}>
           <div className={s.exemploEsquerda}>
-            <div className={s.abas} role="tablist" aria-label="Tipo de exemplo">{CASO_IDS.map((c, i) => <button key={c} id={`${id}-${c}`} type="button" role="tab" aria-selected={caso === c} aria-controls={`${id}-painel`} tabIndex={caso === c ? 0 : -1} onClick={() => muda(c)} onKeyDown={(e) => navega(e, i)}>{CASOS[c].curto}</button>)}</div>
-            <div role="tabpanel" id={`${id}-painel`} aria-labelledby={`${id}-${caso}`} tabIndex={0} className={s.exemploDescricao}>
-              <span className={s.palavraExemplo}>{CASOS[caso].palavra}</span><h3>{CASOS[caso].destaque}</h3><p>{CASOS[caso].descricao}</p>
-              <Link href={`/solucoes/${caso}`} className={s.linkTexto}>Conhecer esse uso<IconeSeta className="size-5" /></Link>
-            </div>
+            {lateral && <h3 className={s.vitrineTitulo}>Vê como<br />funciona.</h3>}
+            <div className={s.abas} role="tablist" aria-label="Tipo de exemplo" aria-orientation={lateral ? "vertical" : "horizontal"}>{CASO_IDS.map((c, i) => <button key={c} id={`${id}-${c}`} type="button" role="tab" aria-selected={caso === c} aria-controls={`${id}-painel`} tabIndex={caso === c ? 0 : -1} onClick={() => muda(c)} onKeyDown={(e) => navega(e, i)}>{lateral ? <>{CASOS[c].nome}<span>Ver a conversa <IconeSeta className="size-4" /></span></> : CASOS[c].curto}</button>)}</div>
+            {!lateral && <div role="tabpanel" id={`${id}-painel`} aria-labelledby={`${id}-${caso}`} tabIndex={0} className={s.exemploDescricao}>{descricao}</div>}
+            {lateral && <Link href="/cadastro" className={s.botaoEscuro}>Começar meu teste</Link>}
           </div>
           <div className={s.exemploVisual}><CelularDemo caso={caso} etapa={etapa} /></div>
           <div className={s.exemploControle}>
+            {lateral && <div role="tabpanel" id={`${id}-painel`} aria-labelledby={`${id}-${caso}`} tabIndex={0} className={s.exemploDescricao}>{descricao}</div>}
             <p className={s.sobreTitulo}>Passo {etapa + 1} de 4</p>
             <h4>{ETAPAS[etapa].nome}</h4><p>{ETAPAS[etapa].texto}</p>
-            <div className={s.botoesEtapa} aria-label="Controlar a conversa">{ETAPAS.map((e, i) => <button type="button" key={e.nome} aria-label={`Ver ${e.nome.toLowerCase()}`} aria-pressed={etapa === i} onClick={() => setEtapa(i)}>{i + 1}</button>)}</div>
-            <button type="button" className={s.botaoEscuro} onClick={() => setEtapa((etapa + 1) % ETAPAS.length)}>{etapa === 3 ? "Ver de novo" : "Próximo passo"}<IconeSeta className="size-5" /></button>
+            <div className={s.botoesEtapa} aria-label="Controlar a conversa">{ETAPAS.map((e, i) => <button type="button" key={e.nome} aria-label={`Ver ${e.nome.toLowerCase()}`} aria-pressed={etapa === i} onClick={() => {setEtapa(i);setPausado(true);}}>{i + 1}</button>)}</div>
+            <button type="button" className={s.botaoEscuro} onClick={() => {setEtapa((etapa + 1) % ETAPAS.length);setPausado(true);}}>{etapa === 3 ? "Ver de novo" : "Próximo passo"}<IconeSeta className="size-5" /></button>
+            {lateral && !reduz && <button type="button" className={s.vitrinePausa} onClick={()=>setPausado(p=>!p)}>{pausado ? "Reproduzir demonstração" : "Pausar demonstração"}</button>}
             <span className={s.exemploNota}>Tu configura a mensagem.<br />A Gatlo entrega o link.</span>
           </div>
         </div>
