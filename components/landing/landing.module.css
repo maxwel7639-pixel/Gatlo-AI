@@ -1,17 +1,111 @@
 /*
-  Landing do Gatlo AI (24/10/2026). Referência: o site do Clientaê (faixa que reage à rolagem,
-  palavra gigante no rodapé, celular parado que troca de cena, borda que acende com o mouse).
-  Cores e fonte são as da identidade MX (globals.css); aqui só entra o que é desta página.
+  Landing do Gatlo AI. 24/10/2026: referência do Clientaê (faixa que reage à rolagem, palavra
+  gigante no rodapé, borda que acende com o mouse). 25/10/2026: estrutura modelada no Manychat
+  (cabeçalho que vira vidro, conversa em loop no hero, faixa de prova, seção presa em capítulos,
+  antes e depois que se juntam), com o conteúdo, as cores e a fonte da MX.
   Com "reduzir movimento" (fim do arquivo), nada anda: tudo nasce no estado final.
 */
 
-/* =================================================================== a seção da história */
+/* =================================================================== cabeçalho de vidro */
+
+.cab {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 64px;
+}
+
+.cabBarra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 0;
+  transition:
+    max-width 450ms var(--ease),
+    height 450ms var(--ease),
+    margin 450ms var(--ease),
+    padding 450ms var(--ease),
+    border-radius 450ms var(--ease),
+    background-color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease;
+}
+
+@media (min-width: 640px) {
+  .cabBarra {
+    padding: 0 24px;
+  }
+}
+
+/* passou dos 50px: barra flutuante, arredondada, de vidro */
+.cab[data-rolou] .cabBarra {
+  height: 54px;
+  margin-top: 6px;
+  max-width: min(64rem, calc(100% - 24px));
+  padding: 0 8px 0 14px;
+  border-color: rgb(127 166 255 / 0.16);
+  border-radius: 18px;
+  background: rgb(13 17 23 / 0.66);
+  box-shadow: 0 18px 40px -24px rgb(0 0 0 / 0.9);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+
+/* o nome recolhe e fica só o ícone */
+.cabNome {
+  display: inline-block;
+  max-width: 7em;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  transition:
+    max-width 450ms var(--ease),
+    opacity 300ms ease;
+}
+
+.cab[data-rolou] .cabNome {
+  max-width: 0;
+  opacity: 0;
+}
+
+/* =================================================================== hero */
 
 .secao {
   position: relative;
   isolation: isolate;
   overflow-x: clip; /* as palavras gigantes passam da tela; clip não vira contêiner de rolagem */
   background: radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--azul) 22%, transparent), transparent 70%);
+}
+
+.heroGrid {
+  position: relative;
+  display: grid;
+  gap: 48px;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 40px 16px 64px;
+}
+
+@media (min-width: 640px) {
+  .heroGrid {
+    padding-inline: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .heroGrid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    align-items: center;
+    /* sem a foto do Manychat, a tela cheia sobrava vazia: o hero vai até 720px */
+    min-height: min(calc(100svh - 64px), 720px);
+    padding-block: 48px;
+  }
 }
 
 /* ---------- As palavras que as pessoas comentam, gigantes e apagadas, atrás do hero ---------- */
@@ -55,55 +149,7 @@
   -webkit-text-stroke: 1.5px color-mix(in srgb, var(--texto) 11%, transparent);
 }
 
-/* =================================================================== palco: texto | celular */
-
-.palco {
-  --topo: 64px; /* altura do cabeçalho fixo */
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --dur-cena: 520ms;
-  --alt-celular: 612px;
-  --zoom: 0.6; /* o celular encolhe no telefone; o tamanho de verdade está em .celular */
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  padding-inline: 16px;
-}
-
-/* No telefone: hero em cima; depois o celular fica parado no topo e os passos passam por baixo
-   dele (a mesma linha do grid, uma por cima da outra). */
-.hero {
-  grid-row: 1;
-  grid-column: 1;
-  padding: 40px 0 36px;
-}
-
-.lado {
-  grid-row: 2;
-  grid-column: 1;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.passosCaixa {
-  grid-row: 2;
-  grid-column: 1;
-  z-index: 1;
-  padding-top: calc(var(--alt-celular) * var(--zoom) + 64px);
-  padding-bottom: 72px;
-}
-
-.fixo {
-  position: sticky;
-  top: var(--topo);
-  display: flex;
-  justify-content: center;
-  margin-inline: -16px;
-  padding: 12px 16px 24px;
-  /* faixa de fundo: o texto que sobe some por baixo dela, sem atravessar o celular */
-  background: linear-gradient(to bottom, var(--fundo) calc(100% - 24px), transparent);
-}
-
-/* no telefone o hero ocupa a tela toda: as palavras de fundo ficam mais apagadas atrás do botão */
+/* no telefone o hero ocupa a tela toda: as palavras ficam mais apagadas atrás do botão */
 @media (max-width: 1023px) {
   .palavrasLinha {
     color: color-mix(in srgb, var(--texto) 3.5%, transparent);
@@ -114,185 +160,457 @@
   }
 }
 
-@media (max-width: 1023px) and (min-height: 760px) {
-  .palco {
-    --zoom: 0.66;
-  }
-}
+/* ---------- A conversa em loop ao lado do título ---------- */
 
-@media (max-width: 1023px) and (min-height: 880px) {
-  .palco {
-    --zoom: 0.72;
-  }
-}
-
-@media (max-width: 1023px) and (max-height: 640px) {
-  .palco {
-    --zoom: 0.5;
-  }
-}
-
-@media (min-width: 640px) {
-  .palco {
-    padding-inline: 24px;
-  }
-  .fixo {
-    margin-inline: -24px;
-  }
-}
-
-/* No computador: texto à esquerda, celular parado no meio da tela à direita. */
-@media (min-width: 1024px) {
-  .palco {
-    --zoom: 1;
-    max-width: 72rem;
-    margin-inline: auto;
-    grid-template-columns: minmax(0, 1fr) 380px;
-    column-gap: 64px;
-  }
-  .hero {
-    min-height: calc(100svh - var(--topo));
-    display: flex;
-    align-items: center;
-    padding: 48px 0;
-  }
-  .lado {
-    grid-column: 2;
-    grid-row: 1 / 3;
-  }
-  .passosCaixa {
-    grid-column: 1;
-    padding-top: 0;
-    padding-bottom: 120px;
-  }
-  .fixo {
-    top: calc((100svh - var(--topo) - var(--alt-celular) * var(--zoom)) / 2 + var(--topo));
-    margin-inline: 0;
-    padding: 0;
-    background: none;
-  }
-}
-
-@media (min-width: 1024px) and (max-height: 780px) {
-  .palco {
-    --zoom: 0.84;
-  }
-}
-
-/* =================================================================== os passos */
-
-.passos {
+.bolhas {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   position: relative;
-  padding-left: 56px;
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto;
 }
 
-/* a linha que enche com a rolagem (--progresso vem do JS) */
-.trilho {
+/* a luz azul atrás da conversa */
+.bolhas::before {
+  content: "";
   position: absolute;
-  left: 17px;
-  top: 18px;
-  bottom: 0;
-  width: 2px;
+  inset: -25% -20%;
+  z-index: -1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 42%, transparent), transparent);
+  pointer-events: none;
+}
+
+.bolha {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  line-height: 1.4;
+  box-shadow: 0 24px 48px -24px rgb(0 0 0 / 0.85);
+  opacity: 0;
+  animation-duration: 9s;
+  animation-timing-function: var(--ease);
+  animation-iteration-count: infinite;
+}
+
+.bolhaComentario {
+  justify-self: start;
+  max-width: 300px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  background: rgb(38 42 51 / 0.94);
+  animation-name: bolha1;
+}
+
+.bolhaComentario p {
+  display: grid;
+}
+
+.bolhaPalavra {
+  margin-top: 2px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.bolhaDm {
+  justify-self: end;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 300px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 22px 22px 8px 22px;
+  background: var(--azul);
+  color: #fff;
+  animation-name: bolha2;
+}
+
+.bolhaDe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px 0;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.bolhaDm p {
+  padding: 0 14px;
+}
+
+.bolhaBotao {
+  display: block;
+  align-self: stretch;
+  padding: 10px 14px;
+  border-top: 1px solid rgb(255 255 255 / 0.18);
+  background: rgb(255 255 255 / 0.14);
+  text-align: center;
+  font-weight: 700;
+}
+
+.bolhaResposta {
+  justify-self: start;
+  align-items: center;
+  max-width: 260px;
+  border-radius: 22px 22px 22px 8px;
+  background: #262a33;
+  animation-name: bolha3;
+}
+
+/* =================================================================== faixa de prova */
+
+.prova {
+  position: relative;
+  display: grid;
+  border-block: 1px solid var(--borda);
+  background: rgb(13 17 23 / 0.6);
+}
+
+@media (min-width: 768px) {
+  .prova {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
+.provaRotulo {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 16px;
+  border-bottom: 1px solid var(--borda);
+}
+
+.provaRotulo h2 {
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.provaRotulo p {
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  color: var(--suave);
+}
+
+@media (min-width: 768px) {
+  .provaRotulo {
+    padding: 20px 24px;
+    border-bottom: 0;
+    border-right: 1px solid var(--borda);
+  }
+}
+
+.provaFita {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.provaJanela {
+  width: 100%;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 96px), transparent calc(100% - 56px));
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 96px), transparent calc(100% - 56px));
+}
+
+.provaItem {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 76px;
+  padding: 0 28px;
+  border-right: 1px solid var(--borda);
+  white-space: nowrap;
+}
+
+.provaPalavra {
+  padding: 4px 10px;
   border-radius: 999px;
-  background: var(--borda-forte);
+  background: color-mix(in srgb, var(--azul) 22%, transparent);
+  color: var(--azul-claro);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
-.trilhoEnche {
+.provaDado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.provaPausa {
   position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: linear-gradient(to bottom, var(--azul-claro), var(--azul));
-  transform-origin: top;
-  transform: scaleY(var(--progresso, 0));
-}
-
-.passo {
-  position: relative;
-  min-height: 55svh;
-  padding-bottom: 32px;
-}
-
-@media (min-width: 1024px) {
-  .passo {
-    min-height: 70svh;
-  }
-  .passo:last-child {
-    min-height: 85svh;
-  }
-}
-
-.numero {
-  position: absolute;
-  left: -56px;
-  top: 0;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
   border-radius: 50%;
   border: 1px solid var(--borda-forte);
-  background: var(--fundo);
-  color: var(--suave);
-  font-size: 14px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+  background: rgb(13 17 23 / 0.92);
+  color: var(--texto);
+  cursor: pointer;
+}
+
+.provaPausa:hover {
+  border-color: var(--azul-claro);
+}
+
+/* =================================================================== título que sobe ao aparecer */
+
+.revela {
   transition:
-    background-color 300ms var(--ease),
-    border-color 300ms var(--ease),
-    color 300ms var(--ease),
-    box-shadow 300ms var(--ease),
-    transform 300ms var(--ease);
+    opacity 800ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 800ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
-.passo[data-estado="feito"] .numero {
-  border-color: color-mix(in srgb, var(--azul-claro) 55%, transparent);
-  color: var(--azul-claro);
+.revela[data-oculto] {
+  opacity: 0;
+  transform: translateY(2.5rem);
 }
 
-.passo[data-estado="agora"] .numero {
-  border-color: var(--azul);
+/* =================================================================== capítulos (seção azul presa) */
+
+.cap {
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-cena: 520ms;
+  --alt-celular: 612px;
+  --zoom: 0.5; /* o celular encolhe no telefone; o tamanho de verdade está em .celular */
+  position: relative;
+  isolation: isolate;
   background: var(--azul);
   color: #fff;
-  transform: scale(1.08);
-  box-shadow:
-    0 0 0 6px color-mix(in srgb, var(--azul) 18%, transparent),
-    0 0 30px -4px color-mix(in srgb, var(--azul) 85%, transparent);
 }
 
-/* o passo apagado se apaga pela cor (o texto continua acima de 4,5:1), nunca pela opacidade */
-.passoTitulo {
-  padding-top: 2px;
+/* quadriculado branco bem fraco, que some nas bordas */
+.cap::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(80% 70% at 50% 50%, #000, transparent);
+  mask-image: radial-gradient(80% 70% at 50% 50%, #000, transparent);
+  pointer-events: none;
+}
+
+/* o trilho alto: a altura é o que a rolagem percorre enquanto o palco fica preso */
+.capTrilho {
+  height: calc(100svh - 64px + var(--unidades) * 70svh);
+}
+
+.capPalco {
+  position: sticky;
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  height: calc(100svh - 64px);
+  overflow: hidden;
+  padding: 12px 16px 16px;
+}
+
+.capTexto {
+  order: 2;
+}
+
+.capLado {
+  order: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.capTracos {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.capTracos span {
+  width: 22px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.3);
+  transition:
+    width 400ms var(--ease),
+    background-color 400ms var(--ease);
+}
+
+.capTracos span[data-ativo] {
+  width: 44px;
+  background: #fff;
+}
+
+/* os capítulos ficam todos no mesmo lugar: só o de agora aparece */
+.capLista {
+  display: grid;
+}
+
+.capItem {
+  grid-area: 1 / 1;
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 450ms var(--ease),
+    transform 450ms var(--ease);
+  pointer-events: none;
+}
+
+.capItem[data-ativo] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.capItemTitulo {
   font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.capItemTexto {
+  margin-top: 10px;
+  max-width: 44ch;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgb(255 255 255 / 0.84);
+}
+
+.capBotao {
+  display: none;
+}
+
+.capEtiqueta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: max(220px, calc(300px * var(--zoom)));
+  padding: 7px 12px;
+  border-radius: 10px;
+  background: #07090c;
+  color: #fff;
+  font-size: 12px;
   font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-  color: var(--suave);
-  transition: color 300ms var(--ease);
 }
 
-.passo[data-estado="agora"] .passoTitulo,
-.passo[data-estado="feito"] .passoTitulo {
-  color: var(--texto);
+.capEtiqueta b {
+  color: var(--azul-claro);
+  font-variant-numeric: tabular-nums;
 }
 
-.passoTexto {
-  margin-top: 12px;
-  max-width: 46ch;
-  font-size: 1.0625rem;
-  line-height: 1.65;
-  color: var(--suave);
+.capLegenda {
+  position: relative;
+  padding: 0 16px 20px;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: rgb(255 255 255 / 0.82);
 }
 
-@media (min-width: 1024px) {
-  .passoTitulo {
-    font-size: 1.875rem;
+.cap .celular {
+  box-shadow:
+    0 50px 100px -40px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.06);
+}
+
+@media (max-width: 1023px) and (min-height: 780px) {
+  .cap {
+    --zoom: 0.56;
   }
 }
 
-.legenda {
-  padding-left: 56px;
-  font-size: 0.8125rem;
-  color: var(--suave);
+@media (max-width: 1023px) and (min-height: 900px) {
+  .cap {
+    --zoom: 0.62;
+  }
+}
+
+@media (max-width: 1023px) and (max-height: 680px) {
+  .cap {
+    --zoom: 0.42;
+  }
+  .capItemTexto {
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+}
+
+/* No computador: texto à esquerda, celular à direita, os dois no meio da tela. */
+@media (min-width: 1024px) {
+  .cap {
+    --zoom: 1;
+  }
+  .capTrilho {
+    height: calc(100svh - 64px + var(--unidades) * 85svh);
+  }
+  .capPalco {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    align-items: center;
+    column-gap: 64px;
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+  .capTexto,
+  .capLado {
+    order: 0;
+  }
+  .capTracos {
+    margin-bottom: 28px;
+  }
+  .capItemTitulo {
+    font-size: 2.75rem;
+  }
+  .capItemTexto {
+    margin-top: 16px;
+    font-size: 1.125rem;
+  }
+  .capBotao {
+    display: inline-flex;
+    align-items: center;
+    height: 52px;
+    margin-top: 36px;
+    padding: 0 28px;
+    border-radius: 999px;
+    background: #fff;
+    color: var(--azul);
+    font-weight: 700;
+    box-shadow: 0 16px 32px -16px rgb(0 0 0 / 0.6);
+    transition: background-color 150ms ease;
+  }
+  .capBotao:hover {
+    background: #e8eeff;
+  }
+  .capEtiqueta {
+    width: 300px;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1024px) and (max-height: 780px) {
+  .cap {
+    --zoom: 0.84;
+  }
+  .capEtiqueta {
+    width: calc(300px * var(--zoom));
+  }
 }
 
 /* =================================================================== o celular */
@@ -347,10 +665,10 @@
 .bateria {
   width: 22px;
   height: 10px;
+  padding: 1px;
   border-radius: 3px;
   border: 1.5px solid rgb(232 237 245 / 0.75);
   background: linear-gradient(90deg, rgb(232 237 245 / 0.75) 70%, transparent 70%) content-box;
-  padding: 1px;
 }
 
 .cenas {
@@ -823,6 +1141,152 @@
   color: var(--suave);
 }
 
+/* =================================================================== antes e depois */
+
+.adTrilho {
+  padding: 0 16px 72px;
+}
+
+.adPalco {
+  display: grid;
+  gap: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.adCartao {
+  padding: 28px 24px;
+  border-radius: 28px;
+  will-change: transform;
+}
+
+.adSem {
+  border: 1px solid var(--borda);
+  background: var(--superficie-2);
+}
+
+.adCom {
+  position: relative;
+  background: var(--azul);
+  color: #fff;
+  box-shadow: 0 40px 80px -40px rgb(0 0 0 / 0.85);
+}
+
+.adRotulo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--suave);
+}
+
+.adCom .adRotulo {
+  color: rgb(255 255 255 / 0.85);
+}
+
+.adTitulo {
+  margin-top: 6px;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.adTituloLaco {
+  position: relative;
+  display: inline-block;
+}
+
+/* o laço desenhado à mão em volta do título (no telefone já nasce desenhado) */
+.laco {
+  position: absolute;
+  left: -7%;
+  top: -34%;
+  width: 114%;
+  height: 168%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.laco path {
+  fill: none;
+  stroke: var(--amarelo);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.adLista {
+  display: grid;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.adLista li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.adLista li svg {
+  margin-top: 3px;
+}
+
+.adBotao {
+  display: inline-flex;
+  align-items: center;
+  height: 48px;
+  margin-top: 26px;
+  padding: 0 24px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--azul);
+  font-weight: 700;
+  transition: background-color 150ms ease;
+}
+
+.adBotao:hover {
+  background: #e8eeff;
+}
+
+/* No computador: os dois cartões ficam presos e a rolagem (--p) junta os dois. */
+@media (min-width: 1024px) {
+  .adTrilho {
+    --p: 0;
+    height: 210svh;
+    padding: 0 24px;
+  }
+  .adPalco {
+    position: sticky;
+    top: 64px;
+    grid-template-columns: repeat(2, minmax(0, 420px));
+    justify-content: center;
+    align-items: center;
+    gap: 32px;
+    max-width: none;
+    height: calc(100svh - 64px);
+  }
+  .adCartao {
+    padding: 36px 32px;
+  }
+  .adTitulo {
+    font-size: 2.5rem;
+  }
+  /* o "sem" encolhe e anda pra direita; o "com" anda pra esquerda e fica por cima */
+  .adSem {
+    transform: translateX(calc(var(--p) * (50% + 16px))) scale(calc(1 - var(--p) * 0.15));
+    opacity: calc(1 - var(--p) * 0.45);
+  }
+  .adCom {
+    z-index: 1;
+    transform: translateX(calc(var(--p) * (-50% - 16px)));
+  }
+  .laco path {
+    stroke-dashoffset: calc(1 - clamp(0, (var(--p) - 0.55) * 2.6, 1));
+  }
+}
+
 /* =================================================================== a faixa com as funções */
 
 .faixa {
@@ -1178,13 +1642,70 @@
   }
 }
 
+/* a conversa do hero: cada balão entra na sua vez, os três ficam e saem juntos */
+@keyframes bolha1 {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  6%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bolha2 {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  22%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes bolha3 {
+  0%,
+  38% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  44%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
 /* =================================================================== sem movimento */
 
 @media (prefers-reduced-motion: reduce) {
+  .cabBarra,
+  .cabNome,
   .cena,
-  .numero,
-  .passoTitulo,
-  .gBarra span {
+  .capItem,
+  .capTracos span,
+  .gBarra span,
+  .revela {
     transition: none;
   }
   .comentario,
@@ -1199,6 +1720,11 @@
   .digitando span {
     animation: none;
   }
+  /* a conversa do hero fica parada, com os três balões */
+  .bolha {
+    opacity: 1;
+    animation: none;
+  }
   /* a sequência do direct já nasce no fim: "Enviado" e a resposta dela */
   .enviando,
   .digitando,
@@ -1210,13 +1736,23 @@
     opacity: 1;
     animation: none;
   }
-  /* a faixa deita e mostra as funções todas, paradas */
+  /* antes e depois: lado a lado, com o laço já desenhado */
+  .adSem,
+  .adCom {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .laco path {
+    stroke-dashoffset: 0 !important;
+  }
+  /* as faixas deitam e mostram tudo, parado */
   .fita {
     width: 100%;
     margin-left: 0;
     transform: none;
   }
-  .janela {
+  .janela,
+  .provaJanela {
     -webkit-mask-image: none;
     mask-image: none;
   }
@@ -1232,10 +1768,12 @@
   }
   .grupo + .grupo,
   .pausa,
+  .provaPausa,
   .item::after {
     display: none;
   }
-  .item {
+  .item,
+  .provaItem {
     height: auto;
     min-height: 56px;
     white-space: normal;

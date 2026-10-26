@@ -2,7 +2,16 @@ import Link from "next/link";
 import { PRODUTO } from "@/lib/config";
 
 /** A marca: o balão com o raio + o nome que vem de lib/config.ts. */
-export function Logo({ tamanho = "md", href = "/" }: { tamanho?: "sm" | "md"; href?: string | null }) {
+export function Logo({
+  tamanho = "md",
+  href = "/",
+  classeNome = "",
+}: {
+  tamanho?: "sm" | "md";
+  href?: string | null;
+  /** classe extra no nome (o cabeçalho da landing recolhe o nome ao rolar) */
+  classeNome?: string;
+}) {
   const icone = tamanho === "sm" ? "size-7" : "size-8";
   const conteudo = (
     <span className="inline-flex items-center gap-2.5">
@@ -11,7 +20,7 @@ export function Logo({ tamanho = "md", href = "/" }: { tamanho?: "sm" | "md"; hr
         <path d="M17 20a6 6 0 0 1 6-6h18a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H29l-8 7v-7.4A6 6 0 0 1 17 34z" fill="#fff" />
         <path d="M34 18.5 26 30h6l-2 9.5L38 28h-6z" fill="#1E50F0" />
       </svg>
-      <span className={`font-bold tracking-tight ${tamanho === "sm" ? "text-lg" : "text-xl"}`}>
+      <span className={`font-bold tracking-tight ${tamanho === "sm" ? "text-lg" : "text-xl"} ${classeNome}`}>
         {PRODUTO.nome}
       </span>
     </span>

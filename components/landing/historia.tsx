@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Avatar, Logo, Miniatura } from "@/components/ui";
 import {
   IconeComentario,
@@ -15,68 +16,61 @@ import {
 import s from "./landing.module.css";
 
 /**
- * A HISTÓRIA DO COMENTÁRIO, CONTADA PELA ROLAGEM (pedido do Maxwel, 24/10/2026).
+ * A HISTÓRIA DO COMENTÁRIO, EM CAPÍTULOS (24/10/2026; formato da seção amarela do Manychat
+ * em 25/10). Uma seção azul fica presa na tela enquanto a pessoa rola: à esquerda só o capítulo
+ * de agora (os outros somem no mesmo lugar), à direita o celular, que muda: o post → o comentário
+ * chega → a resposta pública → o direct (enviando… enviado… visto… ela responde) → o painel com
+ * quem clicou → a fila de 500. Em cima, tracinhos mostram em qual capítulo se está.
  *
- * De um lado o texto (o hero é o ato 0, depois 6 passos); do outro um celular parado, que muda
- * conforme a pessoa rola: o post → o comentário chega → a resposta pública → o direct
- * (enviando… enviado… visto… ela responde) → o painel com quem clicou → a fila de 500.
- * O celular é o Instagram de quem usa o Gatlo AI (o perfil fictício @cafe.da.serra).
- *
- * Quem decide o ato é a rolagem: vale o último marco ([data-ato]) que passou da linha de
- * leitura (meio da tela no computador; logo abaixo do celular no celular). O texto é a fonte
- * pro leitor de tela; o desenho do celular é aria-hidden.
+ * Quem decide o capítulo é a rolagem dentro do trilho alto: cada capítulo vale uma "unidade" de
+ * rolagem e o último vale duas, pra fila ter tempo de andar, parar e voltar. O texto de todos os
+ * capítulos fica no HTML (o leitor de tela lê em ordem); o desenho do celular é aria-hidden.
  */
 
 const ULTIMO_ATO = 6;
+const UNIDADES = [1, 1, 1, 1, 1, 2]; // quanto de rolagem cada capítulo ocupa
+const TOTAL = UNIDADES.reduce((a, b) => a + b, 0);
+const ROTULOS = ["Comentou a palavra", "Resposta pública", "A DM sai sozinha", "Visto e respondido", "Quem clicou", "Fila de 500"];
 
 export function Historia({
-  hero,
   porHora,
   janelaDias,
   respostasMax,
   pausa,
+  testeDias,
 }: {
-  hero: ReactNode;
+  testeDias: number;
   porHora: number;
   janelaDias: number;
   respostasMax: number;
   /** quanto tempo a conta fica parada quando a Meta pede pra esperar, já escrito ("3 h") */
   pausa: string;
 }) {
-  const palco = useRef<HTMLDivElement>(null);
-  const fixo = useRef<HTMLDivElement>(null);
-  const [ato, setAto] = useState(0);
-  const [fim, setFim] = useState(0); // 0 a 1 dentro do último passo (a fila esvaziando)
+  const trilho = useRef<HTMLDivElement>(null);
+  const [ato, setAto] = useState(0); // 0 = ainda não prendeu (o post sem comentário)
+  const [fim, setFim] = useState(0); // 0 a 1 dentro do último capítulo (a fila esvaziando)
 
   useEffect(() => {
-    const raiz = palco.current;
-    if (!raiz) return;
-    const marcos = [...raiz.querySelectorAll<HTMLElement>("[data-ato]")];
-    const lista = raiz.querySelector<HTMLElement>("[data-lista]");
-    const largo = matchMedia("(min-width: 1024px)");
+    const el = trilho.current;
+    if (!el) return;
     let quadro = 0;
 
     const mede = () => {
       quadro = 0;
-      const vh = innerHeight;
-      // no telefone o passo acende já um pouco abaixo da faixa do celular, onde se lê inteiro
-      const linha = largo.matches ? vh * 0.5 : (fixo.current?.getBoundingClientRect().bottom ?? vh * 0.6) + vh * 0.16;
-
-      let atual = 0;
-      for (const m of marcos) if (m.getBoundingClientRect().top < linha) atual = Number(m.dataset.ato);
-      setAto(atual);
-
-      const ultimo = marcos[marcos.length - 1];
-      if (ultimo) {
-        const r = ultimo.getBoundingClientRect();
-        const p = (linha - r.top) / Math.max(1, r.height * 0.8);
-        setFim(Math.round(Math.min(1, Math.max(0, p)) * 100) / 100);
+      const topo = 64; // o cabeçalho; a seção prende logo abaixo dele
+      const r = el.getBoundingClientRect();
+      const percurso = Math.max(1, r.height - (innerHeight - topo));
+      const p = Math.min(1, Math.max(0, (topo - r.top) / percurso));
+      if (topo - r.top <= 0) {
+        setAto(0);
+        setFim(0);
+        return;
       }
-      if (lista) {
-        const r = lista.getBoundingClientRect();
-        const p = Math.min(1, Math.max(0, (linha - r.top) / Math.max(1, r.height)));
-        raiz.style.setProperty("--progresso", p.toFixed(4));
-      }
+      let pos = p * TOTAL;
+      let i = 0;
+      while (i < UNIDADES.length - 1 && pos >= UNIDADES[i]) pos -= UNIDADES[i++];
+      setAto(i + 1);
+      setFim(i === UNIDADES.length - 1 ? Math.round(Math.min(1, pos / UNIDADES[i]) * 100) / 100 : 0);
     };
     const agenda = () => {
       if (!quadro) quadro = requestAnimationFrame(mede);
@@ -120,46 +114,48 @@ export function Historia({
     },
   ];
 
+  const agora = Math.max(1, ato); // antes de prender, o texto já mostra o capítulo 1
+
   return (
-    <div ref={palco} className={s.palco}>
-      <div data-ato="0" className={s.hero}>
-        {hero}
-      </div>
-
-      <div className={s.lado} aria-hidden="true">
-        <div ref={fixo} className={s.fixo}>
-          <Celular ato={ato} fim={fim} porHora={porHora} pausa={pausa} />
-        </div>
-      </div>
-
-      <div className={s.passosCaixa}>
-        <h2 className="sr-only">Do comentário ao clique, passo a passo</h2>
-        <div className={s.passos} data-lista>
-          <span className={s.trilho} aria-hidden="true">
-            <span className={s.trilhoEnche} />
-          </span>
-          <ol>
-            {passos.map((p, i) => {
-              const n = i + 1;
-              const estado = n < ato ? "feito" : n === ato ? "agora" : "depois";
-              return (
-                <li key={p.titulo} data-ato={n} data-estado={estado} className={s.passo}>
-                  <span className={s.numero} aria-hidden="true">
-                    {n}
-                  </span>
-                  <h3 className={s.passoTitulo}>
-                    <span className="sr-only">Passo {n}: </span>
+    // o título visível ("cap-titulo") fica logo antes desta seção, na página
+    <section className={s.cap} aria-labelledby="cap-titulo">
+      <div ref={trilho} className={s.capTrilho} style={{ "--unidades": TOTAL } as React.CSSProperties}>
+        <div className={s.capPalco}>
+          <div className={s.capTexto}>
+            <div className={s.capTracos} aria-hidden="true">
+              {passos.map((p, i) => (
+                <span key={p.titulo} data-ativo={i + 1 === agora ? "" : undefined} />
+              ))}
+            </div>
+            <ol className={s.capLista}>
+              {passos.map((p, i) => (
+                <li key={p.titulo} className={s.capItem} data-ativo={i + 1 === agora ? "" : undefined}>
+                  <h3 className={s.capItemTitulo}>
+                    <span className="sr-only">Capítulo {i + 1}: </span>
                     {p.titulo}
                   </h3>
-                  <p className={s.passoTexto}>{p.texto}</p>
+                  <p className={s.capItemTexto}>{p.texto}</p>
                 </li>
-              );
-            })}
-          </ol>
+              ))}
+            </ol>
+            <Link href="/cadastro" className={s.capBotao}>
+              Teste {testeDias} dias grátis
+            </Link>
+          </div>
+
+          <div className={s.capLado} aria-hidden="true">
+            <Celular ato={ato} fim={fim} porHora={porHora} pausa={pausa} />
+            <p className={s.capEtiqueta}>
+              <span>{ROTULOS[agora - 1]}</span>
+              <b>
+                {agora}/{ULTIMO_ATO}
+              </b>
+            </p>
+          </div>
         </div>
-        <p className={s.legenda}>Exemplo com perfil e nomes fictícios.</p>
       </div>
-    </div>
+      <p className={s.capLegenda}>Exemplo com perfil e nomes fictícios.</p>
+    </section>
   );
 }
 

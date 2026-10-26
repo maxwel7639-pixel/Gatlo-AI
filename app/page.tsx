@@ -1,12 +1,17 @@
 import { PRODUTO } from "@/lib/config";
 import { REGRAS_DEMONSTRACAO, emReais, regras, type Regras } from "@/lib/regras";
-import { CabecalhoPublico, Rodape } from "@/components/publico";
+import { Rodape } from "@/components/publico";
 import { BotaoLink } from "@/components/ui";
 import { IconeCheck, IconeInstagram, IconeLink, IconeSeta, IconeX } from "@/components/icones";
 import { Historia } from "@/components/landing/historia";
 import { FaixaFuncoes } from "@/components/landing/faixa-funcoes";
 import { PalavrasFundo } from "@/components/landing/palavras-fundo";
 import { LuzDoCursor } from "@/components/landing/luz-do-cursor";
+import { CabecalhoVidro } from "@/components/landing/cabecalho-vidro";
+import { HeroBolhas } from "@/components/landing/hero-bolhas";
+import { FaixaProva } from "@/components/landing/faixa-prova";
+import { AntesDepois } from "@/components/landing/antes-depois";
+import { Revela } from "@/components/landing/revela";
 import s from "@/components/landing/landing.module.css";
 
 // O preço vem da tabela `regras` do banco; a página se refaz a cada hora.
@@ -45,46 +50,69 @@ export default async function Inicio() {
   const preco = emReais(r.precoMensalCentavos);
   const porHora = Math.round((60 / 3) * r.envioMaxPorRodada);
 
-  const hero = (
-    <div>
-      <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-azul/30 bg-azul/10 px-3 py-1 text-xs font-semibold text-azul-claro">
-        <IconeInstagram className="size-4" /> Para Instagram profissional
-      </p>
-      <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
-        Quem comentar a palavra recebe o teu link na DM.
-      </h1>
-      <p className="mt-6 max-w-xl text-lg leading-relaxed text-suave">
-        Tu escolhe o post, a palavra e a mensagem. O {PRODUTO.nome} manda o link no direct de quem comentou,
-        sozinho, numa fila que respeita o limite do Instagram.
-      </p>
-      <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <BotaoLink href="/cadastro" tamanho="lg">
-          Teste {r.testeDias} dias grátis
-        </BotaoLink>
-        <p className="text-sm text-suave">Sem cartão no teste. Depois, {preco} por mês.</p>
-      </div>
-      <p className="mt-10 flex items-center gap-2 text-sm text-suave">
-        <IconeSeta className="size-4 shrink-0 rotate-90 text-azul-claro" />
-        Rola a página: o celular mostra o caminho, do comentário até o clique.
-      </p>
-    </div>
-  );
-
   return (
     <>
       <LuzDoCursor />
-      <CabecalhoPublico />
+      <CabecalhoVidro testeDias={r.testeDias} />
       <main className="flex-1">
-        {/* ---------------------------------------------------- topo + a história no celular */}
+        {/* ---------------------------------------------------- topo: título + a conversa em loop */}
         <section className={s.secao}>
           <PalavrasFundo />
-          <Historia
-            hero={hero}
-            porHora={porHora}
-            janelaDias={r.janelaRespostaPrivadaDias}
-            respostasMax={r.respostasPublicasMax24h}
-            pausa={tempo(r.envioPausaDirectMin)}
-          />
+          <div className={s.heroGrid}>
+            <div>
+              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-azul/30 bg-azul/10 px-3 py-1 text-xs font-semibold text-azul-claro">
+                <IconeInstagram className="size-4" /> Para Instagram profissional
+              </p>
+              <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+                Quem comentar a palavra recebe o teu link na DM.
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-suave">
+                Tu escolhe o post, a palavra e a mensagem. O {PRODUTO.nome} manda o link no direct de quem
+                comentou, sozinho, numa fila que respeita o limite do Instagram.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <BotaoLink href="/cadastro" tamanho="lg">
+                  Teste {r.testeDias} dias grátis
+                </BotaoLink>
+                <p className="text-sm text-suave">Sem cartão no teste. Depois, {preco} por mês.</p>
+              </div>
+            </div>
+            <HeroBolhas />
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------- faixa de prova */}
+        <FaixaProva />
+
+        {/* ---------------------------------------------------- a história em capítulos */}
+        <Revela className="mx-auto max-w-3xl px-4 pt-24 pb-14 text-center sm:px-6">
+          <h2 id="cap-titulo" className="text-3xl font-extrabold tracking-tight sm:text-5xl">
+            Do comentário ao clique, sozinho
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-suave">
+            Rola e vê o caminho que cada comentário faz, do post até o link aberto.
+          </p>
+          <IconeSeta className="mx-auto mt-6 size-5 rotate-90 text-azul-claro" />
+        </Revela>
+        <Historia
+          porHora={porHora}
+          janelaDias={r.janelaRespostaPrivadaDias}
+          respostasMax={r.respostasPublicasMax24h}
+          pausa={tempo(r.envioPausaDirectMin)}
+          testeDias={r.testeDias}
+        />
+
+        {/* ---------------------------------------------------- antes e depois */}
+        <section aria-labelledby="ad-titulo">
+          <Revela className="mx-auto max-w-3xl px-4 pt-28 pb-10 text-center sm:px-6">
+            <h2 id="ad-titulo" className="text-3xl font-extrabold tracking-tight sm:text-5xl">
+              Teu direct: antes e depois
+            </h2>
+            <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-suave">
+              Mais comentário, menos trabalho repetido.
+            </p>
+          </Revela>
+          <AntesDepois testeDias={r.testeDias} />
         </section>
 
         {/* ---------------------------------------------------- faixa com as funções */}
@@ -95,12 +123,14 @@ export default async function Inicio() {
           <span className={s.marca} aria-hidden="true">
             LIMITES
           </span>
-          <h2 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
-            O que ele faz, e o que ele não promete
-          </h2>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-suave">
-            Pra tu decidir sabendo exatamente o que leva.
-          </p>
+          <Revela>
+            <h2 className="max-w-2xl text-3xl font-bold tracking-tight sm:text-4xl">
+              O que ele faz, e o que ele não promete
+            </h2>
+            <p className="mt-4 max-w-2xl text-lg leading-relaxed text-suave">
+              Pra tu decidir sabendo exatamente o que leva.
+            </p>
+          </Revela>
           <div className="mt-10 grid gap-4 md:grid-cols-2">
             <div className={`${s.cartaoLuz} p-6 sm:p-8`} data-luz>
               <h3 className="text-xl font-bold">O que faz</h3>
