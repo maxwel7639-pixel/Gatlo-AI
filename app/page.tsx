@@ -2,7 +2,7 @@ import { PRODUTO } from "@/lib/config";
 import { REGRAS_DEMONSTRACAO, emReais, regras, type Regras } from "@/lib/regras";
 import { Rodape } from "@/components/publico";
 import { BotaoLink } from "@/components/ui";
-import { IconeCheck, IconeInstagram, IconeLink, IconeSeta, IconeX } from "@/components/icones";
+import { IconeCheck, IconeLink, IconeSeta, IconeX } from "@/components/icones";
 import { Historia } from "@/components/landing/historia";
 import { FaixaFuncoes } from "@/components/landing/faixa-funcoes";
 import { PalavrasFundo } from "@/components/landing/palavras-fundo";
@@ -56,13 +56,10 @@ export default async function Inicio() {
       <CabecalhoVidro testeDias={r.testeDias} />
       <main className="flex-1">
         {/* ---------------------------------------------------- topo: título + a conversa em loop */}
-        <section className={s.secao}>
+        <section className={s.secao} data-luz>
           <PalavrasFundo />
           <div className={s.heroGrid}>
             <div>
-              <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-azul/30 bg-azul/10 px-3 py-1 text-xs font-semibold text-azul-claro">
-                <IconeInstagram className="size-4" /> Para Instagram profissional
-              </p>
               <h1 className="text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
                 Quem comentar a palavra recebe o teu link na DM.
               </h1>
@@ -86,7 +83,7 @@ export default async function Inicio() {
 
         {/* ---------------------------------------------------- a história em capítulos */}
         <Revela className="mx-auto max-w-3xl px-4 pt-24 pb-14 text-center sm:px-6">
-          <h2 id="cap-titulo" className="text-3xl font-extrabold tracking-tight sm:text-5xl">
+          <h2 id="cap-titulo" className="scroll-mt-24 text-3xl font-extrabold tracking-tight sm:text-5xl">
             Do comentário ao clique, sozinho
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-suave">
@@ -103,15 +100,11 @@ export default async function Inicio() {
         />
 
         {/* ---------------------------------------------------- antes e depois */}
-        <section aria-labelledby="ad-titulo">
-          <Revela className="mx-auto max-w-3xl px-4 pt-28 pb-10 text-center sm:px-6">
-            <h2 id="ad-titulo" className="text-3xl font-extrabold tracking-tight sm:text-5xl">
-              Teu direct: antes e depois
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-suave">
-              Mais comentário, menos trabalho repetido.
-            </p>
-          </Revela>
+        <section id="antes-depois" aria-labelledby="ad-titulo" className="scroll-mt-16">
+          {/* a frase aparece como marca d'água atrás dos cartões */}
+          <h2 id="ad-titulo" className="sr-only">
+            Teu direct: antes e depois
+          </h2>
           <AntesDepois testeDias={r.testeDias} />
         </section>
 
@@ -119,7 +112,7 @@ export default async function Inicio() {
         <FaixaFuncoes porHora={porHora} testeDias={r.testeDias} />
 
         {/* ---------------------------------------------------- faz / não faz */}
-        <section className={`${s.comMarca} mx-auto max-w-6xl px-4 pt-28 pb-20 sm:px-6`}>
+        <section id="limites" className={`${s.comMarca} mx-auto max-w-6xl scroll-mt-28 px-4 pt-28 pb-20 sm:px-6`}>
           <span className={s.marca} aria-hidden="true">
             LIMITES
           </span>
@@ -158,7 +151,7 @@ export default async function Inicio() {
         </section>
 
         {/* ---------------------------------------------------- preço */}
-        <section className={`${s.comMarca} mx-auto max-w-6xl px-4 pt-24 pb-24 sm:px-6`}>
+        <section id="preco" className={`${s.comMarca} mx-auto max-w-6xl scroll-mt-28 px-4 pt-24 pb-24 sm:px-6`}>
           <span className={s.marca} aria-hidden="true">
             {r.testeDias} DIAS
           </span>

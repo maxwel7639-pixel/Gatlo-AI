@@ -5,7 +5,7 @@ import { useEffect } from "react";
 /**
  * A luz azul que segue o mouse (a mesma do site do Clientaê). Um ouvinte só pra página inteira:
  * todo elemento com data-luz que está sob o mouse recebe --lx/--ly em px, relativos a ele, e o
- * atributo data-luz-ativa. Quem acende é o CSS: a borda dos cartões e a palavra do rodapé.
+ * atributo data-luz-ativa. Quem acende é o CSS: a luz do hero, a borda dos cartões e a palavra do rodapé.
  * No celular não existe mouse: um toque leva a luz até o dedo.
  */
 export function LuzDoCursor() {

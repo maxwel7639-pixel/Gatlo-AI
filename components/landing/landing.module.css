@@ -8,53 +8,128 @@
 
 /* =================================================================== cabeçalho de vidro */
 
+/* Fixo por cima do hero e recuado das bordas, como o do Manychat. No topo é transparente, com
+   texto claro; aos 50px o fundo assenta em vidro claro e o texto fica escuro. */
 .cab {
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  position: sticky;
-  top: 0;
+  --ease: cubic-bezier(0.165, 0.84, 0.44, 1);
+  position: fixed;
+  inset: 0 0 auto;
   z-index: 30;
-  height: 64px;
+  padding: 10px 12px 0;
+  color: var(--texto);
+  pointer-events: none; /* só a barra recebe clique, não a faixa em volta dela */
+  transition: color 600ms var(--ease);
 }
 
-.cabBarra {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 64px;
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 0 16px;
-  border: 1px solid transparent;
-  border-radius: 0;
-  transition:
-    max-width 450ms var(--ease),
-    height 450ms var(--ease),
-    margin 450ms var(--ease),
-    padding 450ms var(--ease),
-    border-radius 450ms var(--ease),
-    background-color 300ms ease,
-    border-color 300ms ease,
-    box-shadow 300ms ease;
-}
-
-@media (min-width: 640px) {
-  .cabBarra {
-    padding: 0 24px;
+@media (min-width: 768px) {
+  .cab {
+    padding-inline: 20px;
   }
 }
 
-/* passou dos 50px: barra flutuante, arredondada, de vidro */
-.cab[data-rolou] .cabBarra {
-  height: 54px;
-  margin-top: 6px;
-  max-width: min(64rem, calc(100% - 24px));
-  padding: 0 8px 0 14px;
-  border-color: rgb(127 166 255 / 0.16);
-  border-radius: 18px;
-  background: rgb(13 17 23 / 0.66);
-  box-shadow: 0 18px 40px -24px rgb(0 0 0 / 0.9);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  backdrop-filter: blur(22px) saturate(150%);
+.cabBarra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 54px; /* 10 + 54 = 64: o que fica preso na tela (capítulos, antes e depois) começa logo abaixo */
+  padding: 0 6px 0 12px;
+  pointer-events: auto;
+}
+
+@media (min-width: 768px) {
+  .cabBarra {
+    padding: 0 8px 0 18px;
+  }
+}
+
+/* o fundo é uma camada à parte: nasce um pouco maior e transparente, e encolhe até virar vidro */
+.cabBarra::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 14px;
+  transform: scale(1.01, 1.1);
+  transition:
+    background-color 600ms var(--ease),
+    backdrop-filter 600ms var(--ease),
+    transform 600ms var(--ease);
+}
+
+.cab[data-rolou] {
+  color: #0b1020;
+}
+
+.cab[data-rolou] .cabBarra::before {
+  background-color: rgb(236 241 250 / 0.88);
+  -webkit-backdrop-filter: blur(40px) saturate(160%);
+  backdrop-filter: blur(40px) saturate(160%);
+  transform: scale(1);
+}
+
+/* os atalhos pras seções, no meio da barra (só no computador) */
+.cabLinks {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .cabLinks {
+    position: absolute;
+    left: 50%;
+    display: flex;
+    gap: 28px;
+    transform: translateX(-50%);
+  }
+}
+
+.cabLinks a,
+.cabEntrar {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  transition: opacity 200ms ease;
+}
+
+.cabLinks a:hover,
+.cabEntrar:hover {
+  opacity: 1;
+}
+
+.cabAcoes {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.cabBotao {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--azul);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background-color 200ms ease;
+}
+
+.cabBotao:hover {
+  background: var(--azul-hover);
+}
+
+.cabEntrar {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  padding: 0 10px;
 }
 
 /* o nome recolhe e fica só o ícone */
@@ -74,13 +149,45 @@
   opacity: 0;
 }
 
+/* tela bem estreita: só o ícone, pra caber o botão e o Entrar */
+@media (max-width: 379px) {
+  .cabNome {
+    max-width: 0;
+    opacity: 0;
+  }
+}
+
 /* =================================================================== hero */
 
 .secao {
   position: relative;
   isolation: isolate;
   overflow-x: clip; /* as palavras gigantes passam da tela; clip não vira contêiner de rolagem */
+  padding-top: 64px; /* o cabeçalho é fixo, por cima */
   background: radial-gradient(60% 45% at 50% 0%, color-mix(in srgb, var(--azul) 22%, transparent), transparent 70%);
+}
+
+/* a luz azul segue o mouse com atraso (--lx/--ly vêm do LuzDoCursor; no celular, do toque) */
+.secao::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 640px;
+  height: 640px;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 42%, transparent), transparent);
+  transform: translate3d(calc(var(--lx, 72vw) - 50%), calc(var(--ly, 440px) - 50%), 0);
+  transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .secao::before {
+    width: 420px;
+    height: 420px;
+    transform: translate3d(calc(var(--lx, 50vw) - 50%), calc(var(--ly, 760px) - 50%), 0);
+  }
 }
 
 .heroGrid {
@@ -170,16 +277,6 @@
   width: 100%;
   max-width: 360px;
   margin: 0 auto;
-}
-
-/* a luz azul atrás da conversa */
-.bolhas::before {
-  content: "";
-  position: absolute;
-  inset: -25% -20%;
-  z-index: -1;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--azul) 42%, transparent), transparent);
-  pointer-events: none;
 }
 
 .bolha {
@@ -1144,7 +1241,7 @@
 /* =================================================================== antes e depois */
 
 .adTrilho {
-  padding: 0 16px 72px;
+  padding: 96px 16px 72px;
 }
 
 .adPalco {
@@ -1152,6 +1249,23 @@
   gap: 16px;
   max-width: 480px;
   margin: 0 auto;
+}
+
+/* a frase do título vira marca d'água: no telefone, em cima dos cartões */
+.adMarca {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 8px;
+  font-size: 10vw;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: transparent;
+  -webkit-text-stroke: 1.2px color-mix(in srgb, var(--texto) 16%, transparent);
+  pointer-events: none;
+  user-select: none;
 }
 
 .adCartao {
@@ -1255,7 +1369,19 @@
   .adTrilho {
     --p: 0;
     height: 210svh;
+    margin-top: 48px;
     padding: 0 24px;
+  }
+  /* no computador: uma linha em cima e outra embaixo dos cartões, que se juntam por cima dela */
+  .adMarca {
+    position: absolute;
+    inset: 0;
+    align-content: space-between;
+    margin: 0;
+    padding-block: 2svh;
+    font-size: min(9vw, 16svh);
+    -webkit-text-stroke-width: 1.5px;
+    -webkit-text-stroke-color: color-mix(in srgb, var(--texto) 12%, transparent);
   }
   .adPalco {
     position: sticky;
@@ -1699,7 +1825,9 @@
 /* =================================================================== sem movimento */
 
 @media (prefers-reduced-motion: reduce) {
-  .cabBarra,
+  .cab,
+  .cabBarra::before,
+  .secao::before,
   .cabNome,
   .cena,
   .capItem,

@@ -27,6 +27,7 @@ const COM = [
  * prende os dois cartões e a rolagem (--p, de 0 a 1) junta os dois: o "sem" encolhe e anda pra
  * direita, o "com" anda pra esquerda e fica por cima; no fim, um laço é desenhado em volta do
  * título do "com". No telefone os cartões ficam um embaixo do outro, já com o laço.
+ * A frase do título vira marca d'água atrás deles; o h2 de verdade fica na página, só pra leitor de tela.
  */
 export function AntesDepois({ testeDias }: { testeDias: number }) {
   const trilho = useRef<HTMLDivElement>(null);
@@ -59,6 +60,11 @@ export function AntesDepois({ testeDias }: { testeDias: number }) {
   return (
     <div ref={trilho} className={s.adTrilho}>
       <div className={s.adPalco}>
+        <p className={s.adMarca} aria-hidden="true">
+          <span>Teu direct:</span>
+          <span>antes e depois</span>
+        </p>
+
         <div className={`${s.adCartao} ${s.adSem}`}>
           <p className={s.adRotulo}>Sem o Gatlo AI</p>
           <h3 className={s.adTitulo}>Tudo na mão</h3>
