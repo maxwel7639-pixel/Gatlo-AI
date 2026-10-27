@@ -3,7 +3,7 @@ import Link from "next/link";
 import { FormEntrar } from "@/components/formularios-auth";
 import { Aviso } from "@/components/ui";
 
-export const metadata: Metadata = { title: "Entrar" };
+export const metadata: Metadata = { title: "Entrar", robots: { index: false, follow: false } };
 
 const ERROS: Record<string, string> = {
   link_invalido: "Esse link não vale mais. Entra com e-mail e senha.",

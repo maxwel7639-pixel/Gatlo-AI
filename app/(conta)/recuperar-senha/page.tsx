@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FormRecuperar } from "@/components/formularios-auth";
 
-export const metadata: Metadata = { title: "Esqueci a senha" };
+export const metadata: Metadata = { title: "Esqueci a senha", robots: { index: false, follow: false } };
 
 export default function RecuperarSenha() {
   return (
