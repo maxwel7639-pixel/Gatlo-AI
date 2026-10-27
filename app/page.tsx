@@ -2,6 +2,7 @@ import type { Viewport } from "next";
 import { PRODUTO } from "@/lib/config";
 import { REGRAS_DEMONSTRACAO, emReais, regras, type Regras } from "@/lib/regras";
 import { Rodape } from "@/components/publico";
+import { DadosEstruturados } from "@/components/dados-estruturados";
 import { BotaoLink } from "@/components/ui";
 import { IconeCheck, IconeLink, IconeX } from "@/components/icones";
 import { FaixaFuncoes } from "@/components/landing/faixa-funcoes";
@@ -56,6 +57,7 @@ export default async function Inicio() {
   return (
     // .pagina: o tema claro da landing (as outras páginas seguem escuras)
     <div className={`${s.pagina} ${m.pagina} flex flex-1 flex-col`}>
+      <DadosEstruturados precoMensal={(r.precoMensalCentavos / 100).toFixed(2)} />
       <LuzDoCursor />
       <CabecalhoVidro testeDias={r.testeDias} />
       <main className="flex-1">

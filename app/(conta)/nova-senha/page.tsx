@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { FormNovaSenha } from "@/components/formularios-auth";
 
-export const metadata: Metadata = { title: "Senha nova" };
+export const metadata: Metadata = { title: "Senha nova", robots: { index: false, follow: false } };
 
 /**
  * Chega-se aqui pelo link do e-mail (Supabase: /auth/confirmar já criou a
