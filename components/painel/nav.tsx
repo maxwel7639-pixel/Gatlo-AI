@@ -19,7 +19,7 @@ function ativo(pathname: string, href: string, exato?: boolean) {
 export function NavLateral() {
   const pathname = usePathname();
   return (
-    <nav className="space-y-1" aria-label="Painel">
+    <nav className="gatlo-nav-lateral space-y-1" aria-label="Painel">
       {ITENS.map(({ href, rotulo, icone: Icone, exato }) => {
         const sim = ativo(pathname, href, exato);
         return (
@@ -43,12 +43,14 @@ export function NavLateral() {
 /** Barra de baixo (celular). */
 export function NavInferior() {
   const pathname = usePathname();
+  const selecionado = ITENS.findIndex(item => ativo(pathname, item.href, item.exato));
   return (
     <nav
       aria-label="Painel"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-borda bg-fundo/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden"
+      className="gatlo-dock fixed z-40 lg:hidden"
     >
-      <div className="mx-auto grid max-w-md grid-cols-4">
+      <div className="gatlo-dock-trilho mx-auto grid max-w-md grid-cols-4" style={{ '--aba': selecionado } as React.CSSProperties}>
+        {selecionado >= 0 && <span className="gatlo-dock-onda" aria-hidden="true" />}
         {ITENS.map(({ href, rotulo, icone: Icone, exato }) => {
           const sim = ativo(pathname, href, exato);
           return (
@@ -56,7 +58,7 @@ export function NavInferior() {
               key={href}
               href={href}
               aria-current={sim ? "page" : undefined}
-              className={`flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${
+              className={`gatlo-dock-item flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold ${
                 sim ? "text-azul-claro" : "text-suave"
               }`}
             >

@@ -6,6 +6,7 @@ import { sair } from "@/lib/auth/acoes";
 import { Logo, Selo } from "@/components/ui";
 import { NavInferior, NavLateral } from "@/components/painel/nav";
 import { IconeSair } from "@/components/icones";
+import "@/components/painel/navegacao-apple.css";
 
 export const metadata: Metadata = {
   title: { default: "Painel", template: `%s · ${PRODUTO.nome}` },
@@ -17,7 +18,7 @@ export default async function LayoutPainel({ children }: { children: React.React
   const teste = situacao?.status === "trial";
 
   return (
-    <div className="flex min-h-screen">
+    <div className="gatlo-painel-apple flex min-h-screen">
       {/* ------------------------------------------------ lateral (computador) */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-borda bg-superficie/60 px-4 py-5 lg:flex">
         <div className="px-2">
@@ -90,7 +91,7 @@ export default async function LayoutPainel({ children }: { children: React.React
             </form>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-16">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-10 lg:pt-10 lg:pb-16">
           {children}
         </main>
       </div>
