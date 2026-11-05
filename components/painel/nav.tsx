@@ -26,13 +26,15 @@ export function NavLateral() {
           <Link
             key={href}
             href={href}
+            aria-label={rotulo}
+            title={rotulo}
             aria-current={sim ? "page" : undefined}
             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition-colors ${
               sim ? "bg-azul/15 text-azul-claro" : "text-suave hover:bg-superficie-2 hover:text-texto"
             }`}
           >
             <Icone className="size-5" />
-            {rotulo}
+            <span className="gatlo-lateral-texto">{rotulo}</span>
           </Link>
         );
       })}

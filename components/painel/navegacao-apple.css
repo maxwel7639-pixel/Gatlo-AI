@@ -3,7 +3,19 @@
   --fundo: #172d42; --superficie: #1d3449; --superficie-2: #253d54;
   --superficie-3: #2f4760; --borda: #36516a; --texto: #f5f7fa; --suave: #b2bfcd;
 }
-.gatlo-painel-apple > aside { background: #1d3449; box-shadow: inset -1px 0 0 #ffffff08; }
+.gatlo-lateral { background: #1d3449; box-shadow: inset -1px 0 0 #ffffff08; }
+.gatlo-lateral-espaco { width:72px; flex-shrink:0; }
+.gatlo-lateral { position:fixed; inset:0 auto 0 0; z-index:30; width:72px; height:100dvh; display:flex; flex-direction:column; overflow-x:hidden; overflow-y:auto; background:#1d3449; transition:width 200ms ease,box-shadow 200ms ease; }
+.gatlo-lateral:is(:hover,:has(:focus-visible)) { width:256px; box-shadow:12px 0 32px #0003; }
+.gatlo-lateral-texto { white-space:nowrap; }
+.gatlo-lateral:not(:hover):not(:has(:focus-visible)) .gatlo-lateral-texto { opacity:0; pointer-events:none; }
+.gatlo-lateral:not(:hover):not(:has(:focus-visible)) > .gatlo-lateral-texto { display:none; }
+.gatlo-lateral-marca { position:absolute; left:5px; top:0; display:grid; place-items:center; width:32px; height:32px; border-radius:50%; background:#1e50f0; color:white; font-weight:700; }
+.gatlo-lateral:is(:hover,:has(:focus-visible)) .gatlo-lateral-marca { display:none; }
+.gatlo-lateral .gatlo-nav-lateral a { min-height:44px; }
+.gatlo-lateral .gatlo-nav-lateral svg { width:20px; height:20px; flex-shrink:0; }
+.gatlo-lateral .gatlo-nav-lateral span { position:absolute; left:44px; }
+@media (prefers-reduced-motion:reduce) { .gatlo-lateral { transition:none; } }
 .gatlo-nav-lateral a { position: relative; isolation: isolate; overflow: hidden; transition: background 180ms ease, box-shadow 180ms ease; }
 .gatlo-nav-lateral a[aria-current=page] { background: #1e50f030; box-shadow: inset 0 1px 0 #ffffff18, 0 10px 24px -18px #0009; }
 .gatlo-nav-lateral a[aria-current=page]::after { content: ''; position: absolute; left: 20%; right: 20%; bottom: 0; height: 2px; background: #7fa6ff; border-radius: 100%; box-shadow: 0 -3px 14px #7fa6ff60; }
@@ -19,7 +31,7 @@
 .gatlo-dock-item[aria-current=page] svg { transform: translateY(-3px); }
 .gatlo-dock-onda { position: absolute; inset: 0 auto 0 0; width: 25%; pointer-events: none; border-radius: 23px; background: radial-gradient(ellipse at 50% 100%, #1e50f040, transparent 80%); transform: translateX(calc(var(--aba) * 100%)); transition: transform 260ms cubic-bezier(.2,.8,.2,1); }
 .gatlo-dock-onda::after { content: ''; position: absolute; bottom: 0; left: 15%; right: 15%; height: 12px; border-bottom: 2px solid #7fa6ff; border-radius: 0 0 50% 50%; filter: drop-shadow(0 -2px 5px #7fa6ff70); }
-@supports (backdrop-filter: blur(1px)) { .gatlo-dock { background: #1d3449eb; backdrop-filter: blur(20px) saturate(150%); } .gatlo-painel-apple > aside { background: #1d3449ed; backdrop-filter: blur(20px); } }
+@supports (backdrop-filter: blur(1px)) { .gatlo-dock { background: #1d3449eb; backdrop-filter: blur(20px) saturate(150%); } .gatlo-lateral { background: #1d3449ed; backdrop-filter: blur(20px); } }
 @media (min-width:1024px) { .gatlo-dock { display:none; } }
 @media (prefers-reduced-motion:reduce) { .gatlo-dock *, .gatlo-nav-lateral a { transition: none; } .gatlo-dock-item[aria-current=page] svg { transform:none; } }
-@media (prefers-reduced-transparency:reduce), (prefers-contrast:more) { .gatlo-dock, .gatlo-painel-apple > aside { background:#1d3449; backdrop-filter:none; } }
+@media (prefers-reduced-transparency:reduce), (prefers-contrast:more) { .gatlo-dock, .gatlo-lateral { background:#1d3449; backdrop-filter:none; } }
