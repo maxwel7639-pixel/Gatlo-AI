@@ -20,12 +20,16 @@ export default async function LayoutPainel({ children }: { children: React.React
   return (
     <div className="gatlo-painel-apple flex min-h-screen">
       {/* ------------------------------------------------ lateral (computador) */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-borda bg-superficie/60 px-4 py-5 lg:flex">
-        <div className="px-2">
+      <div className="gatlo-lateral-espaco hidden lg:block">
+      <aside className="gatlo-lateral border-r border-borda px-3 py-5">
+        <div className="relative px-2">
+          <span className="gatlo-lateral-marca" aria-hidden="true">G</span>
+          <div className="gatlo-lateral-texto">
           <Logo href="/painel" />
+          </div>
         </div>
         {demonstracao.instagram ? (
-          <div className="mt-4 px-2">
+          <div className="gatlo-lateral-texto mt-4 px-2">
             <Selo cor="amarelo">Modo demonstração</Selo>
           </div>
         ) : null}
@@ -36,7 +40,7 @@ export default async function LayoutPainel({ children }: { children: React.React
         {situacao ? (
           <Link
             href="/painel/conta"
-            className="mb-4 block rounded-xl border border-borda bg-superficie-2 px-3.5 py-3 text-sm hover:border-borda-forte"
+            className="gatlo-lateral-texto mb-4 block rounded-xl border border-borda bg-superficie-2 px-3.5 py-3 text-sm hover:border-borda-forte"
           >
             {teste && situacao.liberada ? (
               <>
@@ -57,7 +61,7 @@ export default async function LayoutPainel({ children }: { children: React.React
         ) : null}
 
         <div className="flex items-center gap-2 border-t border-borda px-2 pt-4">
-          <div className="min-w-0 flex-1">
+          <div className="gatlo-lateral-texto min-w-0 flex-1 order-2">
             <p className="truncate text-sm font-semibold">{usuario.nome ?? "Sem nome"}</p>
             <p className="truncate text-xs text-suave">{usuario.email}</p>
           </div>
@@ -73,6 +77,7 @@ export default async function LayoutPainel({ children }: { children: React.React
           </form>
         </div>
       </aside>
+      </div>
 
       {/* ------------------------------------------------ conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
