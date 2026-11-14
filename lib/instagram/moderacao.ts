@@ -3,11 +3,10 @@ import {
   apagarComentario,
   comentarNoPost,
   enviarDmDoComentario,
-  listarComentarios,
+  lerComentario,
   ocultarComentario,
   responderComentario,
 } from "./meta";
-import type { Comentario } from "./tipos";
 
 /**
  * As ações da tela "Comentários do post": o dono clica, o servidor confere e chama a Meta.
@@ -15,7 +14,7 @@ import type { Comentario } from "./tipos";
  *
  * Conferências (o navegador pode mandar qualquer id):
  * - o post tem que estar entre os posts DESTA conta;
- * - o comentário tem que estar entre os comentários DESSE post (lidos agora, na Meta);
+ * - o comentário tem que ser DESSE post (lido agora na Meta, pelo id: media.id);
  * - apagar: só comentário feito pela própria conta;
  * - DM e resposta: só em comentário de outra pessoa, de primeiro nível (o Instagram não
  *   responde resposta, e resposta privada a si mesmo não existe).
@@ -47,7 +46,7 @@ export function lerPedido(form: FormData): Pedido | { erro: string } {
 }
 
 export type Api = {
-  listarComentarios: typeof listarComentarios;
+  lerComentario: typeof lerComentario;
   comentarNoPost: typeof comentarNoPost;
   responderComentario: typeof responderComentario;
   enviarDmDoComentario: typeof enviarDmDoComentario;
@@ -56,7 +55,7 @@ export type Api = {
 };
 
 const apiReal: Api = {
-  listarComentarios,
+  lerComentario,
   comentarNoPost,
   responderComentario,
   enviarDmDoComentario,
@@ -65,15 +64,6 @@ const apiReal: Api = {
 };
 
 export type Resultado = { ok: true; mensagem: string } | { ok: false; erro: string; tokenInvalido?: boolean };
-
-function achar(lista: Comentario[], id: string): { c: Comentario; primeiroNivel: boolean } | null {
-  for (const c of lista) {
-    if (c.id === id) return { c, primeiroNivel: true };
-    const r = c.respostas.find((x) => x.id === id);
-    if (r) return { c: r, primeiroNivel: false };
-  }
-  return null;
-}
 
 export async function moderar(
   p: Pedido,
@@ -86,9 +76,9 @@ export async function moderar(
       await api.comentarNoPost(ctx.token, p.mediaId, p.texto);
       return { ok: true, mensagem: "Comentário publicado no post." };
     }
-    const achado = achar(await api.listarComentarios(ctx.token, p.mediaId), p.commentId!);
-    if (!achado) return { ok: false, erro: "Esse comentário não está mais no post." };
-    const { c, primeiroNivel } = achado;
+    const c = await api.lerComentario(ctx.token, p.commentId!);
+    if (c.mediaId !== p.mediaId) return { ok: false, erro: "Esse comentário não é deste post." };
+    const primeiroNivel = !c.paiId;
     const proprio = c.autorId === ctx.igUserId;
 
     switch (p.acao) {

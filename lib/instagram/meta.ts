@@ -306,7 +306,10 @@ function paraComentario(c: ComentarioMeta): Comentario {
   };
 }
 
-/** Os 50 comentários mais recentes do post, com as respostas. */
+/**
+ * Os 50 comentários mais recentes do post, com a 1ª página de respostas de cada um.
+ * shortcut: sem paginação na tela; se um post passar disso, seguir paging.next com os cursores.
+ */
 export async function listarComentarios(token: string, mediaId: string): Promise<Comentario[]> {
   const u = new URL(`${GRAPH}/${encodeURIComponent(mediaId)}/comments`);
   const campos = "id,text,username,timestamp,hidden,from";
@@ -324,16 +327,46 @@ function postarCom(token: string, url: URL, corpo?: unknown): Promise<RespostaMe
   });
 }
 
+/** 200 sem id não prova que a Meta fez: não anuncia sucesso (e não manda tentar de novo). */
+function idConfirmado(id: unknown): string {
+  const s = typeof id === "string" || typeof id === "number" ? String(id) : "";
+  if (!s) throw new ErroMeta("A Meta não confirmou. Confere no Instagram antes de tentar de novo.");
+  return s;
+}
+
+/**
+ * Um comentário pelo id, com o post e o pai: é a prova de que ele pertence ao post
+ * (a lista de comentários é paginada e não serve para isso).
+ */
+export async function lerComentario(
+  token: string,
+  commentId: string,
+): Promise<{ id: string; autorId: string | null; username: string | null; mediaId: string | null; paiId: string | null }> {
+  const u = new URL(`${GRAPH}/${encodeURIComponent(commentId)}`);
+  u.searchParams.set("fields", "id,username,from,media,parent_id");
+  const j = (await chamar(u.toString(), comToken(token))) as RespostaMeta & ComentarioMeta & {
+    media?: { id?: string };
+    parent_id?: string;
+  };
+  return {
+    id: String(j.id ?? commentId),
+    autorId: j.from?.id ? String(j.from.id) : null,
+    username: j.username ?? j.from?.username ?? null,
+    mediaId: j.media?.id ? String(j.media.id) : null,
+    paiId: j.parent_id ? String(j.parent_id) : null,
+  };
+}
+
 /** Comentário novo da própria conta no post. Devolve o id do comentário. */
 export async function comentarNoPost(token: string, mediaId: string, texto: string): Promise<string> {
   const j = await postarCom(token, new URL(`${GRAPH}/${encodeURIComponent(mediaId)}/comments`), { message: texto });
-  return String(j.id ?? "");
+  return idConfirmado(j.id);
 }
 
 /** Resposta pública a um comentário. Devolve o id da resposta. */
 export async function responderComentario(token: string, commentId: string, texto: string): Promise<string> {
   const j = await postarCom(token, new URL(`${GRAPH}/${encodeURIComponent(commentId)}/replies`), { message: texto });
-  return String(j.id ?? "");
+  return idConfirmado(j.id);
 }
 
 /** Resposta privada (DM) para quem fez o comentário. Devolve o id da mensagem. */
@@ -347,7 +380,7 @@ export async function enviarDmDoComentario(
     recipient: { comment_id: commentId },
     message: { text: texto },
   });
-  return String(j.message_id ?? j.id ?? "");
+  return idConfirmado(j.message_id ?? j.id);
 }
 
 export async function ocultarComentario(token: string, commentId: string, ocultar: boolean): Promise<void> {
