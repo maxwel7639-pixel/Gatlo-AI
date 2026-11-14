@@ -9,7 +9,8 @@ import { temCartao, temPix, usaSupabase } from "./env";
 import { createAdminClient } from "./supabase/admin";
 import { createClient } from "./supabase/server";
 import { mudar } from "./local/banco";
-import { postsDaConta } from "./instagram";
+import { moderarNaConta, postsDaConta } from "./instagram";
+import { lerPedido } from "./instagram/moderacao";
 import { lerFormulario, type Erros } from "./automacao-validar";
 import { dentroDaTaxa } from "./taxa";
 import { legendaCurta } from "./formato";
@@ -265,4 +266,25 @@ export async function cancelarAssinatura(): Promise<EstadoCancelamento> {
   }
   revalidatePath("/painel/conta");
   return { ok: "Pedido de cancelamento enviado. Quando o gateway confirmar, a cobrança para (pode levar alguns minutos). Recarrega a página pra ver a situação." };
+}
+
+/* ------------------------------------------------- comentários do post */
+
+export type EstadoModeracao = { ok?: string; erro?: string; vez?: number };
+
+/** Um clique na tela "Comentários do post": comentar, responder, DM, ocultar, mostrar ou apagar. */
+export async function moderarComentario(_: EstadoModeracao, form: FormData): Promise<EstadoModeracao> {
+  const usuario = await exigirUsuario();
+  if (!(await dentroDaTaxa(`moderar:${usuario.id}`, 60, 3600))) {
+    return { erro: "Muitas ações em pouco tempo. Espera uns minutos.", vez: Date.now() };
+  }
+  const conta = await repo().contaInstagram(usuario.id);
+  if (!conta || conta.status !== "conectada") return { erro: "Conecta o Instagram primeiro.", vez: Date.now() };
+
+  const pedido = lerPedido(form);
+  if ("erro" in pedido) return { erro: pedido.erro, vez: Date.now() };
+
+  const r = await moderarNaConta(conta, pedido);
+  revalidatePath(`/painel/posts/${encodeURIComponent(pedido.mediaId)}`);
+  return r.ok ? { ok: r.mensagem, vez: Date.now() } : { erro: r.erro, vez: Date.now() };
 }

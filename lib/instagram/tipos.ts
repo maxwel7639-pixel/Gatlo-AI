@@ -32,3 +32,15 @@ export type Post = {
   /** null = a Meta não informou (sem permissão, post antigo, álbum...). */
   metricas: Metricas | null;
 };
+
+/** Um comentário de um post da conta (e as respostas dele, um nível só, como no Instagram). */
+export type Comentario = {
+  id: string;
+  texto: string;
+  username: string | null;
+  /** id de quem comentou (from.id); igual ao igUserId da conta = comentário da própria conta. */
+  autorId: string | null;
+  publicadoEm: string;
+  oculto: boolean;
+  respostas: Comentario[];
+};
