@@ -1,6 +1,6 @@
 import "server-only";
 import { SITE_URL } from "../config";
-import type { Metricas, PerfilInstagram, Post } from "./tipos";
+import type { Comentario, Metricas, PerfilInstagram, Post } from "./tipos";
 
 /**
  * API do Instagram com login do Instagram ("Instagram API with Instagram
@@ -269,4 +269,95 @@ export async function metricasDoPost(token: string, mediaId: string): Promise<Me
     }
   }
   return null;
+}
+
+/* ------------------------------------------------ comentários e resposta privada
+ * Usados pela tela "Comentários do post" (ação do dono, um clique de cada vez).
+ * Conferido na documentação da Meta (Instagram API with Instagram Login):
+ * - ler:       GET  /{media-id}/comments (replies vem como campo do comentário)
+ * - comentar:  POST /{media-id}/comments?message=...
+ * - responder: POST /{comment-id}/replies?message=...
+ * - ocultar:   POST /{comment-id}?hide=true|false
+ * - apagar:    DELETE /{comment-id}
+ * - DM:        POST /{ig-user-id}/messages { recipient: { comment_id }, message: { text } }
+ *              (resposta privada: uma por comentário, até 7 dias depois dele)
+ * A API não tem "editar comentário" (o próprio app do Instagram também não tem).
+ */
+
+type ComentarioMeta = {
+  id?: string;
+  text?: string;
+  username?: string;
+  timestamp?: string;
+  hidden?: boolean;
+  from?: { id?: string; username?: string };
+  replies?: { data?: ComentarioMeta[] };
+};
+
+function paraComentario(c: ComentarioMeta): Comentario {
+  return {
+    id: String(c.id),
+    texto: c.text ?? "",
+    username: c.username ?? c.from?.username ?? null,
+    autorId: c.from?.id ? String(c.from.id) : null,
+    publicadoEm: c.timestamp ?? new Date(0).toISOString(),
+    oculto: c.hidden === true,
+    respostas: (c.replies?.data ?? []).filter((r) => r.id).map(paraComentario),
+  };
+}
+
+/** Os 50 comentários mais recentes do post, com as respostas. */
+export async function listarComentarios(token: string, mediaId: string): Promise<Comentario[]> {
+  const u = new URL(`${GRAPH}/${encodeURIComponent(mediaId)}/comments`);
+  const campos = "id,text,username,timestamp,hidden,from";
+  u.searchParams.set("fields", `${campos},replies{${campos}}`);
+  u.searchParams.set("limit", "50");
+  const j = await chamar(u.toString(), comToken(token));
+  return ((Array.isArray(j.data) ? j.data : []) as ComentarioMeta[]).filter((c) => c.id).map(paraComentario);
+}
+
+function postarCom(token: string, url: URL, corpo?: unknown): Promise<RespostaMeta> {
+  return chamar(url.toString(), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: corpo === undefined ? undefined : JSON.stringify(corpo),
+  });
+}
+
+/** Comentário novo da própria conta no post. Devolve o id do comentário. */
+export async function comentarNoPost(token: string, mediaId: string, texto: string): Promise<string> {
+  const j = await postarCom(token, new URL(`${GRAPH}/${encodeURIComponent(mediaId)}/comments`), { message: texto });
+  return String(j.id ?? "");
+}
+
+/** Resposta pública a um comentário. Devolve o id da resposta. */
+export async function responderComentario(token: string, commentId: string, texto: string): Promise<string> {
+  const j = await postarCom(token, new URL(`${GRAPH}/${encodeURIComponent(commentId)}/replies`), { message: texto });
+  return String(j.id ?? "");
+}
+
+/** Resposta privada (DM) para quem fez o comentário. Devolve o id da mensagem. */
+export async function enviarDmDoComentario(
+  token: string,
+  igUserId: string,
+  commentId: string,
+  texto: string,
+): Promise<string> {
+  const j = await postarCom(token, new URL(`${GRAPH}/${encodeURIComponent(igUserId)}/messages`), {
+    recipient: { comment_id: commentId },
+    message: { text: texto },
+  });
+  return String(j.message_id ?? j.id ?? "");
+}
+
+export async function ocultarComentario(token: string, commentId: string, ocultar: boolean): Promise<void> {
+  const u = new URL(`${GRAPH}/${encodeURIComponent(commentId)}`);
+  u.searchParams.set("hide", ocultar ? "true" : "false");
+  const j = await postarCom(token, u);
+  if (j.success !== true) throw new ErroMeta("A Meta não confirmou.");
+}
+
+export async function apagarComentario(token: string, commentId: string): Promise<void> {
+  const j = await chamar(`${GRAPH}/${encodeURIComponent(commentId)}`, { ...comToken(token), method: "DELETE" });
+  if (j.success !== true) throw new ErroMeta("A Meta não confirmou.");
 }

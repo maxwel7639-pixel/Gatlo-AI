@@ -3,11 +3,13 @@ import { createAdminClient } from "../supabase/admin";
 import { cifrar, decifrar } from "../cripto";
 import type { ContaInstagram } from "../dados/tipos";
 import { ErroMeta, listarPosts, renovarToken } from "./meta";
-import { postsDemo } from "./demo";
+import { comentariosDemo, postsDemo } from "./demo";
+import { listarComentarios } from "./meta";
+import { moderar, type Pedido, type Resultado } from "./moderacao";
 import { type ContaParaInscrever, reinscrever } from "./reinscrever";
-import type { Post } from "./tipos";
+import type { Comentario, Post } from "./tipos";
 
-export type { Post, Metricas, PerfilInstagram } from "./tipos";
+export type { Post, Metricas, PerfilInstagram, Comentario } from "./tipos";
 
 /**
  * Cache curto dos posts por conta (2 min): a grade, o formulário de automação
@@ -52,6 +54,42 @@ export async function postsDaConta(conta: ContaInstagram): Promise<ResultadoPost
     console.error("[posts]", (e as Error).message);
     return { ok: false, erro: "O Instagram não respondeu agora. Tenta de novo em instantes.", reconectar: false };
   }
+}
+
+/* ------------------------------------------------ comentários do post */
+
+export type ResultadoComentarios =
+  | { ok: true; comentarios: Comentario[] }
+  | { ok: false; erro: string; reconectar: boolean };
+
+/** Lidos na hora (sem cache): a tela mostra o efeito do clique logo depois. */
+export async function comentariosDoPost(conta: ContaInstagram, mediaId: string): Promise<ResultadoComentarios> {
+  if (conta.demonstracao) return { ok: true, comentarios: comentariosDemo(conta.igUserId) };
+  const token = await lerToken(conta.id);
+  if (!token) return { ok: false, erro: "Não achei a autorização do Instagram. Conecta de novo.", reconectar: true };
+  try {
+    return { ok: true, comentarios: await listarComentarios(token, mediaId) };
+  } catch (e) {
+    if (e instanceof ErroMeta && e.tokenInvalido) {
+      await marcarExpirada(conta.id);
+      return { ok: false, erro: "A autorização do Instagram venceu ou foi removida. Conecta de novo.", reconectar: true };
+    }
+    console.error("[comentarios]", (e as Error).message);
+    return { ok: false, erro: "O Instagram não respondeu agora. Tenta de novo em instantes.", reconectar: false };
+  }
+}
+
+/** Uma ação do dono num comentário (ou um comentário novo), conferida em moderacao.ts. */
+export async function moderarNaConta(conta: ContaInstagram, pedido: Pedido): Promise<Resultado> {
+  if (conta.demonstracao) return { ok: true, mensagem: "Demonstração: nada foi enviado ao Instagram." };
+  const posts = await postsDaConta(conta);
+  if (!posts.ok) return { ok: false, erro: posts.erro };
+  const token = await lerToken(conta.id);
+  if (!token) return { ok: false, erro: "Não achei a autorização do Instagram. Conecta de novo." };
+  const r = await moderar(pedido, { token, igUserId: conta.igUserId, postIds: posts.posts.map((p) => p.id) });
+  if (!r.ok && r.tokenInvalido) await marcarExpirada(conta.id);
+  if (r.ok) cache.delete(conta.id); // o número de comentários da grade mudou
+  return r;
 }
 
 /* ------------------------------------------------ token (só servidor) */

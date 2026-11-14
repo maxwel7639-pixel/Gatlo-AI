@@ -1,4 +1,4 @@
-import type { PerfilInstagram, Post } from "./tipos";
+import type { Comentario, PerfilInstagram, Post } from "./tipos";
 
 /**
  * MODO DEMONSTRAÇÃO: um perfil e posts INVENTADOS (o "Café da Serra" não
@@ -69,4 +69,22 @@ export function postsDemo(): Post[] {
             },
     };
   });
+}
+
+/** Comentários INVENTADOS de um post da demonstração (nada fala com a Meta). */
+export function comentariosDemo(contaIgUserId: string): Comentario[] {
+  const c = (id: string, username: string, texto: string, autorId = `demo-fa-${id}`, respostas: Comentario[] = []): Comentario => ({
+    id: `demo-${id}`,
+    texto,
+    username,
+    autorId,
+    publicadoEm: new Date(Date.now() - Number(id) * 3600_000).toISOString(),
+    oculto: false,
+    respostas,
+  });
+  return [
+    c("1", "ana.ribeiro", "quero", undefined, [c("11", "cafe.da.serra", "Te mandei na DM! ☕", contaIgUserId)]),
+    c("2", "joao_mendes", "Quero a receita!"),
+    c("3", "carla.sousa", "Que lindo esse bolo"),
+  ];
 }
