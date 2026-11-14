@@ -1,0 +1,42 @@
+# CI do Gatilho (14/11/2026, regra do Maxwel em cerebri-claude/engenharia/LEIA.md):
+# a cada PR e a cada push na main roda lint, tipos, build e os testes das Edge Functions (Deno).
+# Sem chave nenhuma: nada aqui fala com a Meta, o Asaas ou o banco real.
+# A sessão só faz merge com este check verde (gh pr checks <n> --watch).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run tipos
+      - run: npm run build
+
+  funcoes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno test --config supabase/functions/deno.json --allow-read --allow-env supabase/functions
