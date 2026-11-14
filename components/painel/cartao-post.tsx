@@ -71,7 +71,13 @@ export function CartaoPost({ post, automacoes }: { post: Post; automacoes: numbe
           <p className="mt-3 border-t border-borda pt-2.5 text-xs text-apagado">Sem alcance e visualizações pra este post.</p>
         )}
 
-        <div className="mt-auto pt-3">
+        <div className="mt-auto flex flex-col gap-2 pt-3">
+          <Link
+            href={`/painel/posts/${encodeURIComponent(post.id)}`}
+            className={`${classeBotao("fantasma", "sm")} w-full`}
+          >
+            <IconeComentario className="size-4" /> Comentários
+          </Link>
           <Link
             href={`/painel/automacoes/nova?post=${encodeURIComponent(post.id)}`}
             className={`${classeBotao("secundario", "sm")} w-full`}

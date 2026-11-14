@@ -2,7 +2,54 @@
 
 Tudo que o Maxwel precisa para enviar o app do Gatlo para a revisão da Meta: checklist, roteiro do vídeo, textos das permissões e instruções para o revisor.
 
-O que o app faz, para não prometer demais: a pessoa conecta o Instagram profissional dela, escolhe um post e uma palavra. Quando alguém comenta essa palavra, o app manda **uma DM** para quem comentou, com um botão de link (uma por comentário). Opcionalmente responde o comentário em público. **O app não posta nada, não curte, não segue, não lê DMs e não manda mensagem a quem não comentou.**
+O que o app faz, para não prometer demais: a pessoa conecta o Instagram profissional dela, escolhe um post e uma palavra. Quando alguém comenta essa palavra, o app manda **uma DM** para quem comentou, com um botão de link (uma por comentário). Opcionalmente responde o comentário em público. Na tela **Posts > Comentários** o dono também comenta no próprio post, responde, manda a DM na mão, oculta, mostra e apaga os comentários da própria conta. **O app não posta foto nem vídeo, não curte, não segue, não lê DMs e não manda mensagem a quem não comentou.**
+
+---
+
+## Reenvio depois da recusa de 13/11/2026
+
+A Meta aprovou `instagram_business_basic` e `instagram_business_manage_insights` e recusou `_manage_messages` e `_manage_comments`. O motivo foi o vídeo: ele não mostrava a ação saindo de um botão do app nem o resultado no app do Instagram. O que o revisor pediu:
+
+- **messages:** (1) a conta e o post escolhidos aparecendo na tela, (2) o envio feito por um botão do app, ao vivo, (3) a mensagem entregue no app do Instagram.
+- **comments:** criar um comentário pelo app, editar, apagar e abrir o app do Instagram para mostrar como ficou no post.
+
+**Editar não existe na API do Instagram** (o próprio app do Instagram também não edita comentário). Não dá para inventar. No vídeo mostramos ocultar e mostrar, e a nota abaixo explica isso.
+
+### Vídeo 1: instagram_business_manage_messages (um vídeo só, sem corte)
+
+Antes de gravar: a conta testadora comenta `quero` no post (comentário feito na hora, porque a resposta privada só vale até 7 dias depois do comentário). Deixe o app do Instagram da conta testadora aberto no celular, espelhado na tela, ou numa segunda janela do navegador.
+
+| # | O que aparece | Legenda (inglês) |
+|---|---|---|
+| 1 | Sair e entrar de novo: tela de login do Gatlo, depois Conta > Conectar Instagram. | "We log in to Gatlo and connect the Instagram professional account." |
+| 2 | Login do Instagram e tela de consentimento, parada na tela, clicar em Permitir. | "Meta login and consent screen. The user grants instagram_business_manage_messages." |
+| 3 | Painel com `@conta` conectada. Abrir Posts e clicar em **Comentários** no post. | "Asset selection: the connected account @… and the chosen post are shown on screen." |
+| 4 | No comentário da conta testadora, clicar em **Enviar DM**, escrever a mensagem e clicar em **Enviar DM**. Aparece "DM enviada para @…". | "We send a private reply to this comment, live, from the Gatlo UI." |
+| 5 | Ir para o app do Instagram da conta testadora: a DM chegou. | "The message is delivered in the native Instagram app." |
+
+### Vídeo 2: instagram_business_manage_comments
+
+| # | O que aparece | Legenda (inglês) |
+|---|---|---|
+| 1 e 2 | Igual ao vídeo 1 (login do Gatlo, login da Meta e consentimento). | "Meta login and consent screen. The user grants instagram_business_manage_comments." |
+| 3 | Posts > Comentários do post, com a conta e o post na tela. | "The connected account and the chosen post." |
+| 4 | Em "Comentar como @conta", escrever e clicar em **Publicar comentário**. | "We add a comment from the Gatlo UI." |
+| 5 | Abrir o post no app do Instagram: o comentário está lá. | "The comment appears in the native Instagram app." |
+| 6 | Voltar ao Gatlo, clicar em **Ocultar** no comentário da conta testadora; abrir o Instagram e mostrar que sumiu para o público. Clicar em **Mostrar**. | "The Instagram API does not support editing a comment, so we moderate it: hide and unhide." |
+| 7 | Clicar em **Responder** no comentário, publicar a resposta, mostrar no Instagram. | "We reply to a comment from the app." |
+| 8 | Clicar em **Apagar** no comentário que o Gatlo criou, confirmar e mostrar no Instagram que ele saiu. | "We delete the comment from the app. Final state in the native Instagram app." |
+
+### Nota para o revisor (colar em inglês nas duas permissões)
+
+```
+Thank you for the feedback. The new screencasts show, without cuts: the full Meta login and consent flow; the connected Instagram account and the selected post on screen (asset selection); each action triggered live from a button in the Gatlo UI; and the result in the native Instagram app.
+
+messages: from Posts > Comments, we click "Send DM" on a comment and the private reply is delivered to the commenter in the Instagram app (POST /{ig-user-id}/messages with recipient.comment_id).
+
+comments: we add a comment from the app, reply to a comment, hide and unhide a comment, and delete the comment we created, opening the Instagram app after each step. About "edit": the Instagram Graph API (Instagram API with Instagram Login) has no endpoint to edit an existing comment, and the Instagram app itself does not allow editing comments. The supported moderation actions are create, reply, hide/unhide and delete, and the video shows all of them.
+
+The app is a server-side app; all Meta calls run on our server with the user's access token obtained through the login flow shown in the video. The interface is in Portuguese; each step has an English caption on screen.
+```
 
 ---
 
@@ -67,7 +114,7 @@ Gatlo lets an Instagram professional account owner pick one of their own posts a
 Português: o app recebe os comentários dos posts da pessoa, vê se tem a palavra e responde o comentário em público (se a pessoa ligar essa opção).
 
 ```
-Gatlo uses instagram_business_manage_comments to receive comments on the posts of the connected account (through the "comments" webhook field, and by reading the comments of the owner's recent posts as a fallback) and check whether a comment contains the keyword the account owner configured. When the owner enables it, we also post a public reply to that same comment (for example "Check your DMs!"). We only act on comments of posts covered by an automation the owner created (one chosen post, or all of their posts), we only reply to comments that matched the keyword, and we never create, edit or delete the owner's posts or other people's comments.
+Gatlo uses instagram_business_manage_comments to receive comments on the posts of the connected account (through the "comments" webhook field, and by reading the comments of the owner's recent posts as a fallback) and check whether a comment contains the keyword the account owner configured. When the owner enables it, we also post a public reply to that same comment (for example "Check your DMs!"). The automation only acts on comments of posts covered by an automation the owner created (one chosen post, or all of their posts) and only replies to comments that matched the keyword. In addition, on the "Comments" screen of one of their own posts, the owner can manually add a comment, reply to a comment, hide or unhide a comment, and delete comments made by their own account, one click at a time. We never create or delete posts, and we never delete other people's comments.
 ```
 
 ### instagram_business_manage_messages
