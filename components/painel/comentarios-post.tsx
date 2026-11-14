@@ -37,15 +37,29 @@ function FormTexto({
   dica?: string;
   aoFechar?: () => void;
 }) {
-  const [estado, enviar, enviando] = useActionState(moderarComentario, {});
+  // Texto controlado: só limpa depois de sucesso; erro mantém o que foi digitado.
+  const [texto, setTexto] = useState("");
+  const [estado, enviar, enviando] = useActionState(async (anterior: EstadoModeracao, form: FormData) => {
+    const r = await moderarComentario(anterior, form);
+    if (r.ok) setTexto("");
+    return r;
+  }, {});
   return (
-    <form action={enviar} className="mt-3 space-y-2" key={estado.ok ? estado.vez : undefined}>
+    <form action={enviar} className="mt-3 space-y-2">
       <input type="hidden" name="acao" value={acao} />
       <input type="hidden" name="mediaId" value={mediaId} />
       {commentId ? <input type="hidden" name="commentId" value={commentId} /> : null}
       <label className="block text-sm font-semibold">
         {rotulo}
-        <textarea name="texto" required maxLength={1000} rows={2} className={`${classeEntrada} mt-1.5 font-normal`} />
+        <textarea
+          name="texto"
+          required
+          maxLength={1000}
+          rows={2}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          className={`${classeEntrada} mt-1.5 font-normal`}
+        />
       </label>
       {dica ? <p className="text-xs text-suave">{dica}</p> : null}
       <div className="flex flex-wrap gap-2">
