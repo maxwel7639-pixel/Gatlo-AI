@@ -316,7 +316,38 @@ export async function listarComentarios(token: string, mediaId: string): Promise
   u.searchParams.set("fields", `${campos},replies{${campos}}`);
   u.searchParams.set("limit", "50");
   const j = await chamar(u.toString(), comToken(token));
-  return ((Array.isArray(j.data) ? j.data : []) as ComentarioMeta[]).filter((c) => c.id).map(paraComentario);
+  const lista = (Array.isArray(j.data) ? j.data : []) as ComentarioMeta[];
+  if (!lista.length) await diagnosticarVazio(token, mediaId, j);
+  return lista.filter((c) => c.id).map(paraComentario);
+}
+
+/**
+ * shortcut: diagnóstico temporário (15/11/2026). A lista vinha vazia com comments_count > 0.
+ * Loga a resposta crua (sem token) e o que a Meta devolve com campos mínimos e com as
+ * permissões do token. Tirar depois de achar a causa.
+ */
+async function diagnosticarVazio(token: string, mediaId: string, cru: RespostaMeta) {
+  const tentar = async (rotulo: string, url: URL) => {
+    try {
+      const r = await chamar(url.toString(), comToken(token));
+      console.warn("[diag-comentarios]", rotulo, JSON.stringify(r).slice(0, 800));
+    } catch (e) {
+      const m = e as ErroMeta;
+      console.warn("[diag-comentarios]", rotulo, "ERRO", m.codigo, m.message);
+    }
+  };
+  console.warn("[diag-comentarios] cru", mediaId, JSON.stringify(cru).slice(0, 800));
+  const minimo = new URL(`${GRAPH}/${encodeURIComponent(mediaId)}/comments`);
+  minimo.searchParams.set("fields", "id,text,username,timestamp");
+  await tentar("minimo", minimo);
+  const semCampos = new URL(`${GRAPH}/${encodeURIComponent(mediaId)}/comments`);
+  await tentar("sem-campos", semCampos);
+  const midia = new URL(`${GRAPH}/${encodeURIComponent(mediaId)}`);
+  midia.searchParams.set("fields", "id,comments_count,owner,username");
+  await tentar("midia", midia);
+  const eu = new URL(`${GRAPH}/me`);
+  eu.searchParams.set("fields", "user_id,username,account_type");
+  await tentar("me", eu);
 }
 
 function postarCom(token: string, url: URL, corpo?: unknown): Promise<RespostaMeta> {
