@@ -364,7 +364,7 @@ export function FormAutomacao({
 
       {/* ------------------------------------------------ prévia */}
       <aside className="lg:sticky lg:top-8">
-        <p className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-apagado">Prévia no celular</p>
+        <p className="mb-3 text-center text-sm font-semibold text-suave">Prévia no celular</p>
         <PreviaCelular
           d={{
             username: conta.username,

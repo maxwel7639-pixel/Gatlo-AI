@@ -118,6 +118,7 @@ export default async function DetalheAutomacao({
               rotulo="Cliques no link"
               valor={n.cliques}
               icone={<IconeLink className="size-4" />}
+              tom="laranja"
               detalhe={n.dms ? `${Math.round((n.cliques / n.dms) * 100)}% de quem recebeu` : "conta só cliques únicos"}
             />
           </div>
@@ -127,12 +128,12 @@ export default async function DetalheAutomacao({
           <div>
             <div className="flex h-2.5 overflow-hidden rounded-full bg-superficie-3" aria-hidden>
               <div className="bg-verde" style={{ width: `${(n.dms / total) * 100}%` }} />
-              <div className="bg-azul" style={{ width: `${(n.naFila / total) * 100}%` }} />
+              <div className="bg-neon-azul" style={{ width: `${(n.naFila / total) * 100}%` }} />
               <div className="bg-vermelho/70" style={{ width: `${(n.erros / total) * 100}%` }} />
             </div>
             <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-suave">
               <span><span className="mr-1.5 inline-block size-2 rounded-full bg-verde" />receberam</span>
-              <span><span className="mr-1.5 inline-block size-2 rounded-full bg-azul" />na fila</span>
+              <span><span className="mr-1.5 inline-block size-2 rounded-full bg-neon-azul" />na fila</span>
               <span><span className="mr-1.5 inline-block size-2 rounded-full bg-vermelho/70" />não entregues</span>
             </p>
           </div>
@@ -159,17 +160,17 @@ export default async function DetalheAutomacao({
             </div>
             <dl className="mt-5 space-y-4 text-sm">
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-apagado">Palavras</dt>
+                <dt className="text-sm font-semibold text-suave">Palavras</dt>
                 <dd className="mt-1.5 flex flex-wrap gap-1.5">
                   {a.palavras.map((p) => (
-                    <span key={p} className="rounded-md bg-azul/15 px-2 py-0.5 text-xs font-semibold text-azul-claro">
+                    <span key={p} className="rounded-md bg-laranja/15 px-2 py-0.5 text-xs font-semibold text-laranja-texto ring-1 ring-inset ring-laranja/40">
                       {p.toUpperCase()}
                     </span>
                   ))}
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-apagado">Mensagem da DM</dt>
+                <dt className="text-sm font-semibold text-suave">Mensagem da DM</dt>
                 <dd className="mt-1.5 whitespace-pre-wrap rounded-xl bg-superficie-2 px-3.5 py-2.5 leading-relaxed">
                   {a.mensagemDm}
                   <span className="mt-2 block border-t border-borda pt-2 text-center font-semibold text-azul-claro">
@@ -178,7 +179,7 @@ export default async function DetalheAutomacao({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-apagado">Link</dt>
+                <dt className="text-sm font-semibold text-suave">Link</dt>
                 <dd className="mt-1 break-all">
                   <a href={a.linkUrl} target="_blank" rel="noopener noreferrer" className="text-azul-claro hover:underline">
                     {a.linkUrl}
@@ -189,7 +190,7 @@ export default async function DetalheAutomacao({
                 </dd>
               </div>
               <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-apagado">Resposta pública</dt>
+                <dt className="text-sm font-semibold text-suave">Resposta pública</dt>
                 <dd className="mt-1 text-suave">{a.respostaPublica ?? "Desligada"}</dd>
               </div>
             </dl>
