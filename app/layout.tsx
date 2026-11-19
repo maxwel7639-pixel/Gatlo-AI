@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
 import { PRODUTO, SITE_URL } from "@/lib/config";
+import { SCRIPT_TEMA } from "@/lib/tema";
 import "./globals.css";
 
 const figtree = Figtree({
@@ -44,7 +45,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${figtree.variable} h-full antialiased`}>
+    // suppressHydrationWarning: o painel põe data-tema no <html> antes do React hidratar
+    <html lang="pt-BR" suppressHydrationWarning className={`${figtree.variable} h-full antialiased`}>
+      <head>
+        {/* no layout raiz porque ele não re-renderiza na navegação: script em página não roda no cliente */}
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

@@ -37,20 +37,26 @@ export function Numero({
   icone,
   detalhe,
   destaque = false,
+  tom,
 }: {
   rotulo: string;
   valor: number;
   icone: React.ReactNode;
   detalhe?: string;
+  /** atalho antigo pro tom azul */
   destaque?: boolean;
+  /** azul = o que o Gatlo fez (DM); laranja = o que a pessoa fez (clique) */
+  tom?: "azul" | "laranja";
 }) {
+  const t = tom ?? (destaque ? "azul" : undefined);
+  const corIcone = t === "azul" ? "text-azul-claro" : t === "laranja" ? "text-laranja-texto" : "text-apagado";
   return (
-    <Cartao className={`p-4 sm:p-5 ${destaque ? "border-azul/40 bg-gradient-to-br from-azul/15 to-superficie" : ""}`}>
+    <Cartao className={`gatlo-numero h-full p-4 sm:p-5 ${t ? `gatlo-numero-${t}` : ""}`}>
       <div className="flex items-center gap-2 text-sm font-medium text-suave">
-        <span className={destaque ? "text-azul-claro" : "text-apagado"}>{icone}</span>
+        <span className={corIcone}>{icone}</span>
         {rotulo}
       </div>
-      <p className="numeros mt-2 text-3xl font-bold tracking-tight">{numero(valor)}</p>
+      <p className={`numeros mt-2 text-3xl font-bold tracking-tight ${t ? corIcone : ""}`}>{numero(valor)}</p>
       {detalhe ? <p className="mt-1 text-xs text-suave">{detalhe}</p> : null}
     </Cartao>
   );

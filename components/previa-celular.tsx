@@ -19,7 +19,8 @@ export type DadosPrevia = {
 
 export function PreviaCelular({ d, animar = false }: { d: DadosPrevia; animar?: boolean }) {
   return (
-    <div className="mx-auto w-full max-w-[320px]">
+    // gatlo-previa: o celular é sempre escuro, mesmo no painel claro (navegacao-apple.css)
+    <div className="gatlo-previa mx-auto w-full max-w-[320px]">
       <div className="relative rounded-[2.6rem] border border-borda-forte bg-[#05070a] p-2.5 shadow-[0_40px_80px_-30px_rgba(30,80,240,0.45)]">
         <div className="overflow-hidden rounded-[2.1rem] bg-[#0b0e13]">
           {/* barra de status */}
