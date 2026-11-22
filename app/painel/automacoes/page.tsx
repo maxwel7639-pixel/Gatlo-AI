@@ -85,7 +85,7 @@ export default async function Automacoes({
                         </div>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {a.palavras.map((p) => (
-                            <span key={p} className="rounded-md bg-superficie-3 px-2 py-0.5 text-xs font-semibold text-azul-claro">
+                            <span key={p} className="rounded-md bg-laranja/15 px-2 py-0.5 text-xs font-semibold text-laranja-texto ring-1 ring-inset ring-laranja/40">
                               {p.toUpperCase()}
                             </span>
                           ))}

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import { basePainel } from "@/lib/painel";
 import { PRODUTO } from "@/lib/config";
@@ -6,11 +6,20 @@ import { sair } from "@/lib/auth/acoes";
 import { Logo, Selo } from "@/components/ui";
 import { NavInferior, NavLateral } from "@/components/painel/nav";
 import { IconeSair } from "@/components/icones";
+import { AlternarTema } from "@/components/painel/alternar-tema";
 import "@/components/painel/navegacao-apple.css";
 
 export const metadata: Metadata = {
   title: { default: "Painel", template: `%s · ${PRODUTO.nome}` },
   robots: { index: false, follow: false },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f6f2ea" },
+    { media: "(prefers-color-scheme: dark)", color: "#172d42" },
+  ],
+  colorScheme: "light dark",
 };
 
 export default async function LayoutPainel({ children }: { children: React.ReactNode }) {
@@ -60,6 +69,8 @@ export default async function LayoutPainel({ children }: { children: React.React
           </Link>
         ) : null}
 
+        <AlternarTema className="mb-3 w-full px-3 py-2.5" />
+
         <div className="flex items-center gap-2 border-t border-borda px-2 pt-4">
           <div className="gatlo-lateral-texto min-w-0 flex-1 order-2">
             <p className="truncate text-sm font-semibold">{usuario.nome ?? "Sem nome"}</p>
@@ -85,6 +96,7 @@ export default async function LayoutPainel({ children }: { children: React.React
           <Logo href="/painel" tamanho="sm" />
           <div className="flex items-center gap-2">
             {demonstracao.instagram ? <Selo cor="amarelo">Demonstração</Selo> : null}
+            <AlternarTema className="size-11 justify-center [&_.gatlo-lateral-texto]:sr-only" />
             <form action={sair}>
               <button
                 type="submit"

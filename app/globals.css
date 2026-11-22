@@ -20,6 +20,10 @@
   --verde: #34d399;
   --amarelo: #fbbf24;
   --vermelho: #f87171;
+  /* destaques do painel (o painel redefine pro tema claro/escuro) */
+  --neon-azul: #4d8dff;
+  --laranja: #ff7a33;
+  --laranja-texto: #ff9a5c;
 }
 
 @theme inline {
@@ -38,6 +42,9 @@
   --color-verde: var(--verde);
   --color-amarelo: var(--amarelo);
   --color-vermelho: var(--vermelho);
+  --color-neon-azul: var(--neon-azul);
+  --color-laranja: var(--laranja);
+  --color-laranja-texto: var(--laranja-texto);
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
 }
 

@@ -142,6 +142,7 @@ export default async function VisaoGeral({
               rotulo="Cliques no link"
               valor={numeros.cliques}
               icone={<IconeLink className="size-4" />}
+              tom="laranja"
               detalhe={numeros.dms ? `${Math.round((numeros.cliques / numeros.dms) * 100)}% de quem recebeu` : undefined}
             />
           </div>
