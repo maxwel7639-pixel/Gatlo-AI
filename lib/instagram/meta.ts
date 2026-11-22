@@ -164,6 +164,23 @@ export async function inscreverComentarios(token: string): Promise<void> {
   if (j.success !== true) throw new ErroMeta("A Meta não confirmou a inscrição no webhook.");
 }
 
+/**
+ * DIAGNÓSTICO TEMPORÁRIO (Passo 0 da spec da Onda 1): inscreve a conta também em
+ * mensagens, para ver o formato real dos eventos. Chamada DEPOIS de inscreverComentarios:
+ * o pedido troca a lista inteira, então leva `comments` junto. Nunca lança: se a Meta
+ * recusar (permissão faltando), a inscrição de comentários feita antes continua valendo.
+ * shortcut: remover junto com gatilho-webhook/diag_mensagens.ts quando o Passo 0 fechar.
+ */
+export async function inscreverMensagensDiag(token: string): Promise<void> {
+  try {
+    const u = new URL(`${GRAPH}/me/subscribed_apps`);
+    u.searchParams.set("subscribed_fields", "comments,messages,messaging_postbacks");
+    await chamar(u.toString(), { ...comToken(token), method: "POST" });
+  } catch (e) {
+    console.error("[diag-mensagens] inscrição em mensagens falhou", e instanceof ErroMeta ? `${e.codigo} ${e.message}` : e);
+  }
+}
+
 export async function lerPerfil(token: string): Promise<PerfilInstagram> {
   const u = new URL(`${GRAPH}/me`);
   u.searchParams.set(
