@@ -1,4 +1,11 @@
-import { ErroMeta, inscreverComentarios } from "./meta";
+import { ErroMeta, inscreverComentarios, inscreverMensagensDiag } from "./meta";
+
+// DIAGNÓSTICO TEMPORÁRIO: sem isto o cron diário voltaria a lista para só `comments`.
+// shortcut: voltar o padrão para inscreverComentarios quando o Passo 0 fechar.
+async function inscreverComDiag(token: string): Promise<void> {
+  await inscreverComentarios(token);
+  await inscreverMensagensDiag(token);
+}
 
 export type ContaParaInscrever = { id: string; token: string };
 
@@ -13,7 +20,7 @@ const EM_PARALELO = 5;
  */
 export async function reinscrever(
   contas: ContaParaInscrever[],
-  inscrever: (token: string) => Promise<void> = inscreverComentarios,
+  inscrever: (token: string) => Promise<void> = inscreverComDiag,
 ): Promise<{ inscritas: number; falhas: number }> {
   let inscritas = 0;
   let falhas = 0;

@@ -36,18 +36,20 @@ Deno.test("reinscrever: POST subscribed_apps com o token de CADA conta (inclusiv
     const r = await reinscrever(contas);
 
     assertEquals(r, { inscritas: 7, falhas: 0 });
-    assertEquals(pedidos.length, 7);
+    // diagnóstico temporário: cada conta recebe comments e, depois, a lista com mensagens
+    assertEquals(pedidos.length, 14);
     for (const p of pedidos) {
       const u = new URL(p.url);
       assertEquals(u.origin, "https://graph.instagram.com");
       assert(u.pathname.endsWith("/me/subscribed_apps"), u.pathname);
-      assertEquals(u.searchParams.get("subscribed_fields"), "comments");
       assertEquals(p.method, "POST");
     }
-    assertEquals(
-      pedidos.map((p) => p.headers.get("authorization")).sort(),
-      contas.map((c) => `Bearer ${c.token}`).sort(),
-    );
+    for (const c of contas) {
+      const campos = pedidos
+        .filter((p) => p.headers.get("authorization") === `Bearer ${c.token}`)
+        .map((p) => new URL(p.url).searchParams.get("subscribed_fields"));
+      assertEquals(campos, ["comments", "comments,messages,messaging_postbacks"]);
+    }
   });
 });
 
@@ -65,7 +67,7 @@ Deno.test("reinscrever: a falha de uma conta vai para o log e não para as outra
       const r = await reinscrever(contas);
 
       assertEquals(r, { inscritas: 2, falhas: 2 });
-      assertEquals(pedidos.length, 4, "as quatro foram tentadas");
+      assertEquals(pedidos.length, 6, "as quatro foram tentadas; as duas boas também na inscrição do diagnóstico");
       assertEquals(logs.map((l) => l[1]).sort(), ["rede", "ruim"], "o log leva o id da conta com problema");
       assert(!JSON.stringify(logs).includes("falso-"), "nenhum token no log");
     },

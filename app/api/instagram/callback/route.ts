@@ -3,7 +3,7 @@ import { usuarioAtual } from "@/lib/auth/sessao";
 import { COOKIE_ESTADO_OAUTH } from "@/lib/auth/nomes";
 import { instagramDemonstracao } from "@/lib/env";
 import { repo } from "@/lib/dados";
-import { ErroMeta, inscreverComentarios, lerPerfil, tokenLongo, trocarCodigo } from "@/lib/instagram/meta";
+import { ErroMeta, inscreverComentarios, inscreverMensagensDiag, lerPerfil, tokenLongo, trocarCodigo } from "@/lib/instagram/meta";
 import { cifrar, iguais } from "@/lib/cripto";
 
 /**
@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
     // O modo demonstração nem chega aqui (volta no começo, sem chamar a Meta).
     try {
       await inscreverComentarios(longo.token);
+      await inscreverMensagensDiag(longo.token);
     } catch (e) {
       console.error("[instagram/callback] inscrição no webhook falhou", e instanceof ErroMeta ? `${e.codigo} ${e.message}` : e);
     }

@@ -1,5 +1,6 @@
 import { type Banco, processarCorpo } from "./processar.ts";
 import { assinaturaConfere, iguaisEmTempoConstante } from "./seguranca.ts";
+import { registrarEventosMensagem } from "./diag_mensagens.ts";
 
 export type Dependencias = {
   /** Deno.env.get em produção; um objeto falso nos testes. */
@@ -91,6 +92,7 @@ export function criarManipulador(dep: Dependencias) {
     // dep.banco() também roda dentro da tarefa: se faltar SUPABASE_URL/SERVICE_ROLE_KEY ele
     // lança, e o erro cai no mesmo .catch em vez de virar um 500 para a Meta
     const tarefa = Promise.resolve()
+      .then(() => registrarEventosMensagem(corpo))
       .then(() => processarCorpo(dep.banco(), corpo))
       .then((r) => {
         if (r.gravados || r.erros) console.log("[gatilho-webhook]", JSON.stringify(r));
